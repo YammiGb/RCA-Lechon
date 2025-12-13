@@ -732,10 +732,22 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
 
           {/* Payment instructions */}
           <div className="bg-cafe-cream border border-cafe-latte rounded-lg p-4">
-            <h4 className="font-medium text-cafe-dark mb-2">📸 Payment Proof Required</h4>
-            <p className="text-sm text-gray-700">
-              After making your payment, please take a screenshot of your payment receipt and attach it when you send your order via Messenger. This helps us verify and process your order quickly.
-            </p>
+            <h4 className="font-medium text-cafe-dark mb-3">📸 Payment Proof Required</h4>
+            <div className="text-sm text-gray-700 space-y-3">
+              <div>
+                <p className="font-semibold mb-2">‼️ Payment Policy ‼️</p>
+                <p className="mb-2">🚫 Strictly NO cancellation of order!</p>
+                <p className="mb-2">
+                  A down payment is required to ensure that every confirmed order is properly scheduled and avoids last-minute cancellations.
+                </p>
+                <p className="mb-2">
+                  The balance can be paid upon delivery or pick-up.
+                </p>
+                <div className="border-t border-gray-300 my-3"></div>
+                <p className="font-medium">Note:</p>
+                <p>Please send a screenshot of your payment for verification.</p>
+              </div>
+            </div>
           </div>
         </div>
 
