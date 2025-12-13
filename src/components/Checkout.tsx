@@ -128,34 +128,82 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
       return `${itemPrice} ${itemName}`;
     }).join('\n');
 
-    // Format payment info
-    let paymentInfo = '';
+    // Build message with proper line breaks - ensure consistent formatting
+    const parts: string[] = [];
+    
+    parts.push(dateTimeDisplay);
+    parts.push('');
+    parts.push(completeAddress.toLowerCase());
+    parts.push('');
+    
+    if (landmarkInfo) {
+      parts.push(landmarkInfo.toLowerCase());
+      parts.push('');
+    }
+    
+    parts.push(customerName);
+    parts.push('');
+    parts.push(contactNumber);
+    parts.push('');
+    parts.push('');
+    parts.push(orderItemsText);
+    parts.push('');
+    
+    // Format payment info - add directly to parts to avoid newline issues
     if (paymentType === 'down-payment') {
       const remainingBalance = totalPrice - downPaymentAmount;
-      paymentInfo = `${totalPrice}-${downPaymentAmount} DP\n\n${remainingBalance} Bal. ${selectedPaymentMethod?.name || paymentMethod}`;
+      parts.push(`${totalPrice}-${downPaymentAmount} DP`);
+      parts.push('');
+      parts.push(`${remainingBalance} Bal. ${selectedPaymentMethod?.name || paymentMethod}`);
     } else {
-      paymentInfo = `${totalPrice} ${selectedPaymentMethod?.name || paymentMethod}`;
+      // Full payment format
+      parts.push(`${totalPrice} ${selectedPaymentMethod?.name || paymentMethod}`);
     }
-
-    const orderDetails = `${dateTimeDisplay}
-
-${completeAddress.toLowerCase()}
-
-${landmarkInfo ? `${landmarkInfo.toLowerCase()}\n` : ''}
-
-${customerName}
-
-${contactNumber}
-
-
-${orderItemsText}
-
-${paymentInfo}`;
-
-    const encodedMessage = encodeURIComponent(orderDetails);
-    const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
     
-    window.open(messengerUrl, '_blank');
+    const orderDetails = parts.join('\n');
+
+    // Use encodeURIComponent and handle URL length limits
+    try {
+      const encodedMessage = encodeURIComponent(orderDetails);
+      
+      // Check if URL is too long (Messenger has ~2000 character limit for URLs)
+      if (encodedMessage.length > 1800) {
+        // If too long, try to shorten or use alternative method
+        alert('Order message is too long. Please reduce the number of items or contact details.');
+        return;
+      }
+      
+      const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
+      
+      // Universal approach that works on iOS, Android, and Desktop
+      // The m.me URL will automatically:
+      // - Open Messenger app if installed on mobile
+      // - Open in browser if app is not installed
+      // - Open in new tab on desktop
+      
+      // Create a temporary link and click it (more reliable across devices)
+      const link = document.createElement('a');
+      link.href = messengerUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      // For mobile devices, use location.href (works better for app deep linking)
+      // For desktop, use the link click method
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // Mobile: Direct navigation works better for app deep linking
+        window.location.href = messengerUrl;
+      } else {
+        // Desktop: Use link click to open in new tab
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error('Error generating Messenger URL:', error);
+      alert('Error generating order message. Please try again.');
+    }
     
   };
 
@@ -518,13 +566,34 @@ ${paymentInfo}`;
                   Down Payment Amount * (Minimum ₱500)
                 </label>
                 <input
-                  type="number"
-                  min={500}
-                  max={totalPrice}
+                  type="text"
+                  inputMode="numeric"
                   value={downPaymentAmount}
                   onChange={(e) => {
-                    const value = Math.max(500, Math.min(Number(e.target.value), totalPrice));
-                    setDownPaymentAmount(value);
+                    // Allow only numbers
+                    const inputValue = e.target.value.replace(/[^0-9]/g, '');
+                    
+                    if (inputValue === '') {
+                      setDownPaymentAmount(500);
+                      return;
+                    }
+                    
+                    const numValue = Number(inputValue);
+                    
+                    // Validate: minimum 500, maximum totalPrice
+                    if (numValue < 500) {
+                      setDownPaymentAmount(500);
+                    } else if (numValue > totalPrice) {
+                      setDownPaymentAmount(totalPrice);
+                    } else {
+                      setDownPaymentAmount(numValue);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Ensure minimum on blur
+                    if (downPaymentAmount < 500) {
+                      setDownPaymentAmount(500);
+                    }
                   }}
                   className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
                   placeholder="Enter amount (minimum ₱500)"
