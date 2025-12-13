@@ -16,6 +16,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
   onUpdateQuantity 
 }) => {
   const [showCustomization, setShowCustomization] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(
     item.variations?.[0]
   );
@@ -91,9 +92,21 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
     return groups;
   }, {} as Record<string, AddOn[]>);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't open details if clicking on buttons or interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a')) {
+      return;
+    }
+    setShowDetails(true);
+  };
+
   return (
     <>
-      <div className={`bg-rca-off-white rounded-xl sm:rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group animate-scale-in border border-rca-green/20 ${!item.available ? 'opacity-60' : ''}`}>
+      <div 
+        onClick={handleCardClick}
+        className={`bg-rca-off-white rounded-xl sm:rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group animate-scale-in border border-rca-green/20 cursor-pointer ${!item.available ? 'opacity-60' : ''}`}
+      >
         {/* Image Container with Badges */}
         <div className="relative h-32 sm:h-40 md:h-48 bg-gradient-to-br from-rca-green/10 to-rca-off-white">
           {item.image ? (
@@ -187,7 +200,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
             </div>
             
             {/* Action Buttons */}
-            <div className="flex-shrink-0 w-full sm:w-auto">
+            <div className="flex-shrink-0 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
               {!item.available ? (
                 <button
                   disabled
@@ -376,6 +389,176 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                 <ShoppingCart className="h-5 w-5" />
                 <span>Add to Cart - ₱{calculatePrice().toFixed(2)}</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Item Details Modal */}
+      {showDetails && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowDetails(false)}
+        >
+          <div 
+            className="bg-rca-off-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-rca-off-white border-b border-rca-green/20 p-4 sm:p-6 flex items-center justify-between rounded-t-2xl z-10">
+              <div className="flex-1">
+                <h3 className="text-xl sm:text-2xl font-playfair font-semibold text-rca-green">{item.name}</h3>
+                <div className="flex items-center gap-2 mt-2">
+                  {item.popular && (
+                    <span className="bg-gradient-to-r from-rca-red/90 to-rca-red text-white text-xs font-bold px-2 py-1 rounded-full">
+                      ⭐ POPULAR
+                    </span>
+                  )}
+                  {item.isOnDiscount && item.discountPrice && (
+                    <span className="bg-gradient-to-r from-rca-red to-rca-red-dark text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                      SALE
+                    </span>
+                  )}
+                  {!item.available && (
+                    <span className="bg-gray-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      UNAVAILABLE
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDetails(false)}
+                className="p-2 hover:bg-rca-green/10 rounded-full transition-colors duration-200 ml-4"
+                aria-label="Close details"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              {/* Image */}
+              <div className="relative h-48 sm:h-64 mb-6 rounded-xl overflow-hidden bg-gradient-to-br from-rca-green/10 to-rca-off-white">
+                {item.image ? (
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-8xl opacity-20 text-gray-400">☕</div>
+                  </div>
+                )}
+                {item.isOnDiscount && item.discountPrice && (
+                  <div className="absolute bottom-3 right-3 bg-rca-off-white/90 backdrop-blur-sm text-rca-red text-sm font-bold px-3 py-1.5 rounded-full shadow-lg">
+                    {Math.round(((item.basePrice - item.discountPrice) / item.basePrice) * 100)}% OFF
+                  </div>
+                )}
+              </div>
+
+              {/* Description */}
+              <div className="mb-6">
+                <p className={`text-base sm:text-lg leading-relaxed ${!item.available ? 'text-gray-400' : 'text-gray-700'}`}>
+                  {!item.available ? 'Currently Unavailable' : item.description}
+                </p>
+              </div>
+
+              {/* Pricing */}
+              <div className="mb-6 p-4 bg-rca-green/5 rounded-xl border border-rca-green/20">
+                {item.isOnDiscount && item.discountPrice ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-3xl sm:text-4xl font-bold text-rca-red">
+                        ₱{item.discountPrice.toFixed(2)}
+                      </span>
+                      <span className="text-lg sm:text-xl text-gray-500 line-through">
+                        ₱{item.basePrice.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      You save ₱{(item.basePrice - item.discountPrice).toFixed(2)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-3xl sm:text-4xl font-bold text-rca-green">
+                    ₱{item.basePrice.toFixed(2)}
+                  </div>
+                )}
+                {item.variations && item.variations.length > 0 && (
+                  <div className="text-sm text-gray-600 mt-2">
+                    Starting price - see size options below
+                  </div>
+                )}
+              </div>
+
+              {/* Variations */}
+              {item.variations && item.variations.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-rca-green mb-3">Available Sizes</h4>
+                  <div className="space-y-2">
+                    {item.variations.map((variation) => (
+                      <div
+                        key={variation.id}
+                        className="flex items-center justify-between p-3 bg-white rounded-lg border border-rca-green/20"
+                      >
+                        <span className="font-medium text-gray-900">{variation.name}</span>
+                        <span className="text-lg font-bold text-rca-green">
+                          ₱{((item.effectivePrice || item.basePrice) + variation.price).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Add-ons */}
+              {groupedAddOns && Object.keys(groupedAddOns).length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-rca-green mb-3">Available Add-ons</h4>
+                  {Object.entries(groupedAddOns).map(([category, addOns]) => (
+                    <div key={category} className="mb-4">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2 capitalize">
+                        {category.replace('-', ' ')}
+                      </h5>
+                      <div className="space-y-2">
+                        {addOns.map((addOn) => (
+                          <div
+                            key={addOn.id}
+                            className="flex items-center justify-between p-3 bg-white rounded-lg border border-rca-green/20"
+                          >
+                            <span className="font-medium text-gray-900">{addOn.name}</span>
+                            <span className="text-sm font-semibold text-rca-green">
+                              {addOn.price > 0 ? `₱${addOn.price.toFixed(2)}` : 'Free'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Action Button */}
+              <div className="pt-4 border-t border-rca-green/20">
+                {!item.available ? (
+                  <button
+                    disabled
+                    className="w-full bg-gray-200 text-gray-500 py-3 rounded-xl cursor-not-allowed font-medium"
+                  >
+                    Currently Unavailable
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setShowDetails(false);
+                      handleAddToCart();
+                    }}
+                    className="w-full bg-rca-red text-white py-3 rounded-xl hover:bg-rca-red-dark transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl"
+                  >
+                    {item.variations?.length || item.addOns?.length ? 'Customize & Add to Cart' : 'Add to Cart'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
