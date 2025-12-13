@@ -19,7 +19,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const [customerName, setCustomerName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [contactNumber2, setContactNumber2] = useState('');
-  const [serviceType, setServiceType] = useState<ServiceType>('pickup');
+  const [serviceType, setServiceType] = useState<ServiceType>('delivery');
   const [address, setAddress] = useState('');
   const [landmark, setLandmark] = useState('');
   const [city, setCity] = useState('Lapu-Lapu City');
@@ -36,7 +36,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   });
   const [deliveryTime, setDeliveryTime] = useState('12:00');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
-  const [paymentType, setPaymentType] = useState<'down-payment' | 'full-payment'>('full-payment');
+  const [paymentType, setPaymentType] = useState<'down-payment' | 'full-payment'>('down-payment');
   const [downPaymentAmount, setDownPaymentAmount] = useState<number>(500);
 
   const SHOP_ADDRESS = 'Gabi Road, Cordova, Lapu-Lapu City';
