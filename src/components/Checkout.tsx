@@ -18,6 +18,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const [step, setStep] = useState<'details' | 'payment'>('details');
   const [customerName, setCustomerName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
+  const [contactNumber2, setContactNumber2] = useState('');
   const [serviceType, setServiceType] = useState<ServiceType>('pickup');
   const [address, setAddress] = useState('');
   const [landmark, setLandmark] = useState('');
@@ -144,6 +145,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     parts.push(customerName);
     parts.push('');
     parts.push(contactNumber);
+    if (contactNumber2) {
+      parts.push(contactNumber2);
+    }
     parts.push('');
     parts.push('');
     parts.push(orderItemsText);
@@ -342,7 +346,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-rca-green mb-2">Contact Number *</label>
+                <label className="block text-sm font-medium text-rca-green mb-2">Mobile No 1 *</label>
                 <input
                   type="tel"
                   value={contactNumber}
@@ -350,6 +354,17 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
                   className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
                   placeholder="09XX XXX XXXX"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-rca-green mb-2">Mobile No 2 (Optional)</label>
+                <input
+                  type="tel"
+                  value={contactNumber2}
+                  onChange={(e) => setContactNumber2(e.target.value)}
+                  className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                  placeholder="09XX XXX XXXX"
                 />
               </div>
 
@@ -455,6 +470,18 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
               {serviceType === 'delivery' && (
                 <>
                   <div>
+                    <label className="block text-sm font-medium text-rca-green mb-2">Delivery Address *</label>
+                    <textarea
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                      placeholder="Enter your complete delivery address"
+                      rows={3}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
                     <label className="block text-sm font-medium text-rca-green mb-2">City *</label>
                     <select
                       aria-label="City"
@@ -467,17 +494,6 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-rca-green mb-2">Delivery Address *</label>
-                    <textarea
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
-                      placeholder="Enter your complete delivery address"
-                      rows={3}
-                      required
-                    />
                   </div>
                   
                   <div>
@@ -731,7 +747,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
             <div className="bg-cafe-beige rounded-lg p-4 border border-cafe-latte">
               <h4 className="font-medium text-cafe-dark mb-2">Customer Details</h4>
               <p className="text-sm text-gray-600">Name: {customerName}</p>
-              <p className="text-sm text-gray-600">Contact: {contactNumber}</p>
+              <p className="text-sm text-gray-600">Contact: {contactNumber}{contactNumber2 ? `, ${contactNumber2}` : ''}</p>
               <p className="text-sm text-gray-600">Service: {serviceType.charAt(0).toUpperCase() + serviceType.slice(1)}</p>
               {serviceType === 'delivery' && (
                 <>
