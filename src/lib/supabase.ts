@@ -4,7 +4,22 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables:', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseAnonKey,
+    url: supabaseUrl,
+    keyPrefix: supabaseAnonKey?.substring(0, 20) + '...'
+  });
   throw new Error('Missing Supabase environment variables');
+}
+
+// Log connection info in development
+if (import.meta.env.DEV) {
+  console.log('Supabase connection initialized:', {
+    url: supabaseUrl,
+    keyLength: supabaseAnonKey?.length,
+    keyPrefix: supabaseAnonKey?.substring(0, 20) + '...'
+  });
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

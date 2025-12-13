@@ -4,13 +4,24 @@ export default {
   theme: {
     extend: {
       colors: {
+        rca: {
+          green: '#2D7659',
+          'green-light': '#4a9f7d',
+          'green-dark': '#1a4434',
+          red: '#DC143C',
+          'red-dark': '#C71C1C',
+          'off-white': '#F8F8F7',
+          white: '#FFFFFF',
+          'text-dark': '#1a1a1a',
+          'text-light': '#666666'
+        },
         cafe: {
-          accent: '#9A6624',
-          dark: '#0B0A0A',
-          cream: '#FAF9F6',
-          beige: '#F5F3F0',
-          latte: '#E8E3DC',
-          espresso: '#3D2F1F',
+          accent: '#DC143C',
+          dark: '#2D7659',
+          cream: '#F8F8F7',
+          beige: '#F8F8F7',
+          latte: '#E8E8E6',
+          espresso: '#1a1a1a',
           light: '#FEFCFB'
         }
       },

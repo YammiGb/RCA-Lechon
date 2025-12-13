@@ -2,21 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Just Cafe Custom Styles */
-/* Minimal helpers for cafe palette when needed outside tailwind tokens */
-.bg-cafe-cream { background-color: #FAF9F6; }
-.bg-cafe-beige { background-color: #F5F3F0; }
-.bg-cafe-light { background-color: #FEFCFB; }
-.text-cafe-accent { color: #9A6624; }
-.text-cafe-dark { color: #0B0A0A; }
-.border-cafe-accent { border-color: #9A6624; }
-.border-cafe-latte { border-color: #E8E3DC; }
-.ring-cafe-accent { --tw-ring-color: #9A6624; }
+/* RCA Lechon Belly & Bilao Custom Styles */
+/* Green, Red, and Off-White Theme */
+.bg-rca-green { background-color: #2D7659; }
+.bg-rca-red { background-color: #DC143C; }
+.bg-rca-off-white { background-color: #F8F8F7; }
+.text-rca-green { color: #2D7659; }
+.text-rca-red { color: #DC143C; }
+.text-rca-dark { color: #1a1a1a; }
+.border-rca-green { border-color: #2D7659; }
+.border-rca-red { border-color: #DC143C; }
+.ring-rca-green { --tw-ring-color: #2D7659; }
+
+/* Backwards compatibility */
+.bg-cafe-cream { background-color: #F8F8F7; }
+.bg-cafe-beige { background-color: #F8F8F7; }
+.bg-cafe-light { background-color: #F8F8F7; }
+.text-cafe-accent { color: #DC143C; }
+.text-cafe-dark { color: #2D7659; }
+.border-cafe-accent { border-color: #DC143C; }
+.border-cafe-latte { border-color: #E8E8E6; }
+.ring-cafe-accent { --tw-ring-color: #DC143C; }
 
 /* Hide scrollbar for mobile nav */
 .scrollbar-hide {
   -ms-overflow-style: none;
-  scrollbar-width: none;
+  /* scrollbar-width: auto; */ /* Prefixed approach used in -webkit-scrollbar below */
 }
 
 .scrollbar-hide::-webkit-scrollbar {
@@ -26,7 +37,7 @@
 /* Image loading optimization */
 img {
   image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
+  image-rendering: auto; /* Changed from 'crisp-edges' for better Edge compatibility */
 }
 
 /* Preload critical images */

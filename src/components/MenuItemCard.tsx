@@ -93,9 +93,9 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
 
   return (
     <>
-      <div className={`bg-cafe-light rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group animate-scale-in border border-cafe-latte ${!item.available ? 'opacity-60' : ''}`}>
+      <div className={`bg-rca-off-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group animate-scale-in border border-rca-green/20 ${!item.available ? 'opacity-60' : ''}`}>
         {/* Image Container with Badges */}
-        <div className="relative h-48 bg-gradient-to-br from-cafe-beige to-cafe-cream">
+        <div className="relative h-48 bg-gradient-to-br from-rca-green/10 to-rca-off-white">
           {item.image ? (
             <img
               src={item.image}
@@ -116,12 +116,12 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col gap-2">
             {item.isOnDiscount && item.discountPrice && (
-              <div className="bg-gradient-to-r from-cafe-accent to-cafe-espresso text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse">
+              <div className="bg-gradient-to-r from-rca-red to-rca-red-dark text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse">
                 SALE
               </div>
             )}
             {item.popular && (
-              <div className="bg-gradient-to-r from-cafe-accent/90 to-cafe-accent text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+              <div className="bg-gradient-to-r from-rca-red/90 to-rca-red text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
                 ⭐ POPULAR
               </div>
             )}
@@ -135,7 +135,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
           
           {/* Discount Percentage Badge */}
           {item.isOnDiscount && item.discountPrice && (
-            <div className="absolute bottom-3 right-3 bg-cafe-light/90 backdrop-blur-sm text-cafe-accent text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+            <div className="absolute bottom-3 right-3 bg-rca-off-white/90 backdrop-blur-sm text-rca-red text-xs font-bold px-2 py-1 rounded-full shadow-lg">
               {Math.round(((item.basePrice - item.discountPrice) / item.basePrice) * 100)}% OFF
             </div>
           )}
@@ -162,7 +162,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
               {item.isOnDiscount && item.discountPrice ? (
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
-                    <span className="text-2xl font-bold text-cafe-accent">
+                    <span className="text-2xl font-bold text-rca-red">
                       ₱{item.discountPrice.toFixed(2)}
                     </span>
                     <span className="text-sm text-gray-500 line-through">
@@ -174,7 +174,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="text-2xl font-bold text-cafe-dark">
+                <div className="text-2xl font-bold text-rca-green">
                   ₱{item.basePrice.toFixed(2)}
                 </div>
               )}
@@ -198,24 +198,28 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
               ) : quantity === 0 ? (
                 <button
                   onClick={handleAddToCart}
-                  className="bg-cafe-accent text-white px-6 py-2.5 rounded-xl hover:bg-cafe-espresso transition-all duration-200 transform hover:scale-105 font-medium text-sm shadow-lg hover:shadow-xl"
+                  className="bg-rca-red text-white px-6 py-2.5 rounded-xl hover:bg-rca-red-dark transition-all duration-200 transform hover:scale-105 font-medium text-sm shadow-lg hover:shadow-xl"
                 >
                   {item.variations?.length || item.addOns?.length ? 'Customize' : 'Add to Cart'}
                 </button>
               ) : (
-                <div className="flex items-center space-x-2 bg-cafe-beige rounded-xl p-1 border border-cafe-latte">
+                <div className="flex items-center space-x-2 bg-rca-off-white rounded-xl p-1 border border-rca-green/20">
                   <button
                     onClick={handleDecrement}
-                    className="p-2 hover:bg-cafe-latte rounded-lg transition-colors duration-200 hover:scale-110"
+                    title="Decrease quantity"
+                    aria-label="Decrease quantity"
+                    className="p-2 hover:bg-rca-green/10 rounded-lg transition-colors duration-200 hover:scale-110"
                   >
-                    <Minus className="h-4 w-4 text-cafe-dark" />
+                    <Minus className="h-4 w-4 text-rca-green" />
                   </button>
-                  <span className="font-bold text-cafe-dark min-w-[28px] text-center text-sm">{quantity}</span>
+                  <span className="font-bold text-rca-green min-w-[28px] text-center text-sm">{quantity}</span>
                   <button
                     onClick={handleIncrement}
-                    className="p-2 hover:bg-cafe-latte rounded-lg transition-colors duration-200 hover:scale-110"
+                    title="Increase quantity"
+                    aria-label="Increase quantity"
+                    className="p-2 hover:bg-rca-green/10 rounded-lg transition-colors duration-200 hover:scale-110"
                   >
-                    <Plus className="h-4 w-4 text-cafe-dark" />
+                    <Plus className="h-4 w-4 text-rca-green" />
                   </button>
                 </div>
               )}
@@ -224,7 +228,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
 
           {/* Add-ons indicator */}
           {item.addOns && item.addOns.length > 0 && (
-            <div className="flex items-center space-x-1 text-xs text-gray-500 bg-cafe-beige px-2 py-1 rounded-lg">
+            <div className="flex items-center space-x-1 text-xs text-gray-500 bg-rca-off-white px-2 py-1 rounded-lg border border-rca-green/20">
               <span>+</span>
               <span>{item.addOns.length} add-on{item.addOns.length > 1 ? 's' : ''} available</span>
             </div>
@@ -243,6 +247,8 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
               </div>
               <button
                 onClick={() => setShowCustomization(false)}
+                title="Close customization"
+                aria-label="Close customization"
                 className="p-2 hover:bg-cafe-beige rounded-full transition-colors duration-200"
               >
                 <X className="h-5 w-5 text-gray-500" />
@@ -310,6 +316,8 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                                 <div className="flex items-center space-x-2 bg-cafe-beige rounded-xl p-1 border border-cafe-latte">
                                   <button
                                     type="button"
+                                    title="Decrease add-on quantity"
+                                    aria-label="Decrease add-on quantity"
                                     onClick={() => {
                                       const current = selectedAddOns.find(a => a.id === addOn.id);
                                       updateAddOnQuantity(addOn, (current?.quantity || 1) - 1);
@@ -323,6 +331,8 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                                   </span>
                                   <button
                                     type="button"
+                                    title="Increase add-on quantity"
+                                    aria-label="Increase add-on quantity"
                                     onClick={() => {
                                       const current = selectedAddOns.find(a => a.id === addOn.id);
                                       updateAddOnQuantity(addOn, (current?.quantity || 0) + 1);

@@ -4,6 +4,7 @@ import { MenuItem, Variation, AddOn } from '../types';
 import { addOnCategories } from '../data/menuData';
 import { useMenu } from '../hooks/useMenu';
 import { useCategories, Category } from '../hooks/useCategories';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import ImageUpload from './ImageUpload';
 import CategoryManager from './CategoryManager';
 import PaymentMethodManager from './PaymentMethodManager';
@@ -17,6 +18,7 @@ const AdminDashboard: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const { menuItems, loading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenu();
   const { categories } = useCategories();
+  const { siteSettings } = useSiteSettings();
   const [currentView, setCurrentView] = useState<'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings'>('dashboard');
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -934,7 +936,7 @@ const AdminDashboard: React.FC = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <Coffee className="h-8 w-8 text-black" />
-              <h1 className="text-2xl font-noto font-semibold text-black">Just Cafè Admin</h1>
+              <h1 className="text-2xl font-noto font-semibold text-black">{siteSettings?.site_name ? `${siteSettings.site_name} Admin` : 'Admin Dashboard'}</h1>
             </div>
             <div className="flex items-center space-x-4">
               <a

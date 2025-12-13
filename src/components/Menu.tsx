@@ -87,13 +87,12 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
 
   return (
     <>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-rca-off-white">
       {selectedCategory === 'all' && (
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-playfair font-semibold text-cafe-dark mb-4">Our Menu</h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Discover our selection of carefully crafted beverages and delicious treats, 
-            all made with passion and quality ingredients.
+          <h2 className="text-4xl font-playfair font-semibold text-rca-green mb-4">Free Delivery</h2>
+          <p className="text-rca-text-light max-w-2xl mx-auto text-lg font-medium">
+            Lapu-Lapu City, Cebu City, Mandaue City, Talisay, Minglanilla, Consolacion, Liloan
           </p>
         </div>
       )}
@@ -105,8 +104,8 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
         
         return (
           <section key={category.id} id={category.id} className="mb-16">
-            <div className="flex items-center mb-8">
-              <h3 className="text-3xl font-playfair font-medium text-cafe-dark">{category.name}</h3>
+            <div className="flex items-center mb-8 border-b-2 border-rca-red pb-4">
+              <h3 className="text-3xl font-playfair font-medium text-rca-green">{category.name}</h3>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

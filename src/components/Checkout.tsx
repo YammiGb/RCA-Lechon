@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { CartItem, PaymentMethod, ServiceType } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useSiteSettings } from '../hooks/useSiteSettings';
@@ -18,15 +18,15 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const [step, setStep] = useState<'details' | 'payment'>('details');
   const [customerName, setCustomerName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
-  const [serviceType, setServiceType] = useState<ServiceType>('dine-in');
+  const [serviceType, setServiceType] = useState<ServiceType>('pickup');
   const [address, setAddress] = useState('');
   const [landmark, setLandmark] = useState('');
-  const [pickupTime, setPickupTime] = useState('5-10');
-  const [customTime, setCustomTime] = useState('');
-  // Dine-in specific state
-  const [partySize, setPartySize] = useState(1);
+  const [city, setCity] = useState('Lapu-Lapu City');
+  const [pickupTime, setPickupTime] = useState('12:00');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
-  const [notes, setNotes] = useState('');
+
+  const SHOP_ADDRESS = 'Gabi Road, Cordova, Lapu-Lapu City';
+  const CITIES = ['Lapu-Lapu City', 'Cebu City', 'Mandaue City', 'Talisay', 'Minglanilla', 'Consolacion', 'Liloan'];
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -63,28 +63,41 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   };
 
   const handlePlaceOrder = () => {
-    const timeInfo = serviceType === 'pickup' 
-      ? (pickupTime === 'custom' ? customTime : `${pickupTime} minutes`)
-      : '';
-    
-    const dineInInfo = serviceType === 'dine-in' 
-      ? `👥 Party Size: ${partySize} person${partySize !== 1 ? 's' : ''}`
-      : '';
-    
+    const completeAddress = serviceType === 'delivery' ? `${address}` : SHOP_ADDRESS;
+    const landmarkInfo = serviceType === 'delivery' ? landmark : '';
+
+    const formatTimeWithAMPM = (timeString: string) => {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+    };
+
+    const dateTimeDisplay = serviceType === 'pickup'
+      ? formatTimeWithAMPM(pickupTime)
+      : new Date().toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+
     const orderDetails = `
-🛒 Just Cafè ORDER
+Date & Time: ${dateTimeDisplay}
 
-👤 Customer: ${customerName}
-📞 Contact: ${contactNumber}
-📍 Service: ${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)}
-${serviceType === 'delivery' ? `🏠 Address: ${address}${landmark ? `\n🗺️ Landmark: ${landmark}` : ''}` : ''}
-${serviceType === 'pickup' ? `⏰ Pickup Time: ${timeInfo}` : ''}
-${serviceType === 'dine-in' ? dineInInfo : ''}
+Complete Address: ${completeAddress}
+${landmarkInfo ? `\nLandmark: ${landmarkInfo}` : ''}
 
+Full Name: ${customerName}
 
-📋 ORDER DETAILS:
+Mobile No 1: ${contactNumber}
+Mobile No 2: 
+
+Order Details: 
 ${cartItems.map(item => {
-  let itemDetails = `• ${item.name}`;
+  let itemDetails = `${item.name}`;
   if (item.selectedVariation) {
     itemDetails += ` (${item.selectedVariation.name})`;
   }
@@ -99,19 +112,16 @@ ${cartItems.map(item => {
   return itemDetails;
 }).join('\n')}
 
-💰 TOTAL: ₱${totalPrice}
-${serviceType === 'delivery' ? `🛵 DELIVERY FEE:` : ''}
+Total Amount: ₱${totalPrice}
 
-💳 Payment: ${selectedPaymentMethod?.name || paymentMethod}
-${paymentMethod === 'cash' ? '' : '📸 Payment Screenshot: Please attach your payment receipt screenshot'}
-
-${notes ? `📝 Notes: ${notes}` : ''}
-
-Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
+Service Type: ${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)}
+${serviceType === 'delivery' ? `City: ${city}` : ''}
+Payment Method: ${selectedPaymentMethod?.name || paymentMethod}
+${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your payment receipt screenshot'}
     `.trim();
 
     const encodedMessage = encodeURIComponent(orderDetails);
-    const messengerUrl = `https://m.me/justcafebatanes?text=${encodedMessage}`;
+    const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
     
     window.open(messengerUrl, '_blank');
     
@@ -120,9 +130,8 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
   const isDeliveryMinimumMet = serviceType !== 'delivery' || totalPrice >= MINIMUM_DELIVERY_AMOUNT;
   
   const isDetailsValid = customerName && contactNumber && 
-    (serviceType !== 'delivery' || address) && 
-    (serviceType !== 'pickup' || (pickupTime !== 'custom' || customTime)) &&
-    (serviceType !== 'dine-in' || (partySize > 0)) &&
+    (serviceType !== 'delivery' || (address && city)) && 
+    (serviceType !== 'pickup' || pickupTime) &&
     isDeliveryMinimumMet;
 
   if (step === 'details') {
@@ -136,38 +145,38 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
             <ArrowLeft className="h-5 w-5" />
             <span>Back to Cart</span>
           </button>
-          <h1 className="text-3xl font-playfair font-semibold text-cafe-dark ml-8">Order Details</h1>
+          <h1 className="text-3xl font-playfair font-semibold text-rca-green ml-8">Order Details</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Order Summary */}
-          <div className="bg-cafe-light rounded-xl shadow-sm p-6 border border-cafe-latte">
-            <h2 className="text-2xl font-playfair font-medium text-cafe-dark mb-6">Order Summary</h2>
+          <div className="bg-rca-off-white rounded-xl shadow-sm p-6 border border-rca-green/20">
+            <h2 className="text-2xl font-playfair font-medium text-rca-green mb-6">Order Summary</h2>
             
             <div className="space-y-4 mb-6">
               {cartItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between py-2 border-b border-cafe-latte">
+                <div key={item.id} className="flex items-center justify-between py-2 border-b border-rca-green/20">
                   <div>
-                    <h4 className="font-medium text-cafe-dark">{item.name}</h4>
+                    <h4 className="font-medium text-rca-green">{item.name}</h4>
                     {item.selectedVariation && (
-                      <p className="text-sm text-gray-600">Size: {item.selectedVariation.name}</p>
+                      <p className="text-sm text-rca-text-light">Size: {item.selectedVariation.name}</p>
                     )}
                     {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-rca-text-light">
                         Add-ons: {item.selectedAddOns.map(addOn => addOn.name).join(', ')}
                       </p>
                     )}
-                    <p className="text-sm text-gray-600">₱{item.totalPrice} x {item.quantity}</p>
+                    <p className="text-sm text-rca-text-light">₱{item.totalPrice} x {item.quantity}</p>
                   </div>
-                  <span className="font-semibold text-cafe-dark">₱{item.totalPrice * item.quantity}</span>
+                  <span className="font-semibold text-rca-green">₱{item.totalPrice * item.quantity}</span>
                 </div>
               ))}
             </div>
             
-            <div className="border-t border-cafe-latte pt-4">
-              <div className="flex items-center justify-between text-2xl font-playfair font-semibold text-cafe-dark">
+            <div className="border-t border-rca-green/20 pt-4">
+              <div className="flex items-center justify-between text-2xl font-playfair font-semibold text-rca-green">
                 <span>Total:</span>
-                <span className="text-cafe-accent">₱{totalPrice}</span>
+                <span className="text-rca-red">₱{totalPrice}</span>
               </div>
             </div>
             
@@ -189,30 +198,30 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
           </div>
 
           {/* Customer Details Form */}
-          <div className="bg-cafe-light rounded-xl shadow-sm p-6 border border-cafe-latte">
-            <h2 className="text-2xl font-playfair font-medium text-cafe-dark mb-6">Customer Information</h2>
+          <div className="bg-rca-off-white rounded-xl shadow-sm p-6 border border-rca-green/20">
+            <h2 className="text-2xl font-playfair font-medium text-rca-green mb-6">Customer Information</h2>
             
             <form className="space-y-6">
               {/* Customer Information */}
               <div>
-                <label className="block text-sm font-medium text-cafe-dark mb-2">Full Name *</label>
+                <label className="block text-sm font-medium text-rca-green mb-2">Full Name *</label>
                 <input
                   type="text"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full px-4 py-3 border border-cafe-latte rounded-lg focus:ring-2 focus:ring-cafe-accent focus:border-cafe-accent transition-all duration-200 bg-cafe-cream"
+                  className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
                   placeholder="Enter your full name"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-cafe-dark mb-2">Contact Number *</label>
+                <label className="block text-sm font-medium text-rca-green mb-2">Contact Number *</label>
                 <input
                   type="tel"
                   value={contactNumber}
                   onChange={(e) => setContactNumber(e.target.value)}
-                  className="w-full px-4 py-3 border border-cafe-latte rounded-lg focus:ring-2 focus:ring-cafe-accent focus:border-cafe-accent transition-all duration-200 bg-cafe-cream"
+                  className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
                   placeholder="09XX XXX XXXX"
                   required
                 />
@@ -220,10 +229,9 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
 
               {/* Service Type */}
               <div>
-                <label className="block text-sm font-medium text-cafe-dark mb-3">Service Type *</label>
-                <div className={`grid gap-3 ${isDeliveryEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                <label className="block text-sm font-medium text-rca-green mb-3">Service Type *</label>
+                <div className={`grid gap-3 ${isDeliveryEnabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   {[
-                    { value: 'dine-in', label: 'Dine In', icon: '🪑', enabled: true },
                     { value: 'pickup', label: 'Pickup', icon: '🚶', enabled: true },
                     { value: 'delivery', label: 'Delivery', icon: '🛵', enabled: isDeliveryEnabled }
                   ].filter(option => option.enabled).map((option) => (
@@ -233,8 +241,8 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
                       onClick={() => setServiceType(option.value as ServiceType)}
                       className={`p-4 rounded-lg border-2 transition-all duration-200 ${
                         serviceType === option.value
-                          ? 'border-cafe-accent bg-cafe-accent text-white'
-                          : 'border-cafe-latte bg-cafe-cream text-gray-700 hover:border-cafe-accent'
+                          ? 'border-rca-red bg-rca-red text-white'
+                          : 'border-rca-green/20 bg-rca-off-white text-gray-700 hover:border-rca-red'
                       }`}
                     >
                       <div className="text-2xl mb-1">{option.icon}</div>
@@ -243,11 +251,12 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
                   ))}
                 </div>
                 
-                {/* Delivery minimum order info - only show if delivery is enabled */}
+                {/* Shop address - only show if delivery is enabled */}
                 {isDeliveryEnabled && (
                   <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-xs text-blue-800">
-                      <span className="font-medium">📍 Note:</span> Delivery orders require a minimum purchase of ₱{MINIMUM_DELIVERY_AMOUNT}
+                      <span className="font-medium">📍 Our Shop Address:</span><br />
+                      {SHOP_ADDRESS}
                     </p>
                   </div>
                 )}
@@ -262,70 +271,26 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
                 )}
               </div>
 
-              {/* Dine-in Details */}
-              {serviceType === 'dine-in' && (
-                <div>
-                  <label className="block text-sm font-medium text-cafe-dark mb-2">Party Size *</label>
-                  <div className="flex items-center space-x-4">
-                    <button
-                      type="button"
-                      onClick={() => setPartySize(Math.max(1, partySize - 1))}
-                      className="w-10 h-10 rounded-lg border-2 border-cafe-latte flex items-center justify-center text-cafe-accent hover:border-cafe-accent hover:bg-cafe-beige transition-all duration-200"
-                    >
-                      -
-                    </button>
-                    <span className="text-2xl font-semibold text-cafe-dark min-w-[3rem] text-center">{partySize}</span>
-                    <button
-                      type="button"
-                      onClick={() => setPartySize(Math.min(20, partySize + 1))}
-                      className="w-10 h-10 rounded-lg border-2 border-cafe-latte flex items-center justify-center text-cafe-accent hover:border-cafe-accent hover:bg-cafe-beige transition-all duration-200"
-                    >
-                      +
-                    </button>
-                    <span className="text-sm text-gray-600 ml-2">person{partySize !== 1 ? 's' : ''}</span>
-                  </div>
-                </div>
-              )}
-
               {/* Pickup Time Selection */}
               {serviceType === 'pickup' && (
                 <div>
-                  <label className="block text-sm font-medium text-black mb-3">Pickup Time *</label>
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { value: '5-10', label: '5-10 minutes' },
-                        { value: '15-20', label: '15-20 minutes' },
-                        { value: '25-30', label: '25-30 minutes' },
-                        { value: 'custom', label: 'Custom Time' }
-                      ].map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setPickupTime(option.value)}
-                          className={`p-3 rounded-lg border-2 transition-all duration-200 text-sm ${
-                            pickupTime === option.value
-                              ? 'border-cafe-accent bg-cafe-accent text-white'
-                              : 'border-cafe-latte bg-cafe-cream text-gray-700 hover:border-cafe-accent'
-                          }`}
-                        >
-                          <Clock className="h-4 w-4 mx-auto mb-1" />
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                    
-                    {pickupTime === 'custom' && (
-                      <input
-                        type="text"
-                        value={customTime}
-                        onChange={(e) => setCustomTime(e.target.value)}
-                        className="w-full px-4 py-3 border border-cafe-latte rounded-lg focus:ring-2 focus:ring-cafe-accent focus:border-cafe-accent transition-all duration-200 bg-cafe-cream"
-                        placeholder="e.g., 45 minutes, 1 hour, 2:30 PM"
-                        required
-                      />
-                    )}
-                  </div>
+                  <label className="block text-sm font-medium text-rca-green mb-2">Pickup Time *</label>
+                  <p className="text-sm text-rca-text-light mb-3">Shop closes at 8:00 PM</p>
+                  <input
+                    type="time"
+                    aria-label="Pickup Time"
+                    value={pickupTime}
+                    onChange={(e) => {
+                      const time = e.target.value;
+                      const [hours] = time.split(':').map(Number);
+                      if (hours < 20) {
+                        setPickupTime(time);
+                      }
+                    }}
+                    className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                    max="19:59"
+                    required
+                  />
                 </div>
               )}
 
@@ -333,11 +298,11 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
               {serviceType === 'delivery' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-cafe-dark mb-2">Delivery Address *</label>
+                    <label className="block text-sm font-medium text-rca-green mb-2">Delivery Address *</label>
                     <textarea
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      className="w-full px-4 py-3 border border-cafe-latte rounded-lg focus:ring-2 focus:ring-cafe-accent focus:border-cafe-accent transition-all duration-200 bg-cafe-cream"
+                      className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
                       placeholder="Enter your complete delivery address"
                       rows={3}
                       required
@@ -345,36 +310,42 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-cafe-dark mb-2">Landmark</label>
+                    <label className="block text-sm font-medium text-rca-green mb-2">Landmark</label>
                     <input
                       type="text"
                       value={landmark}
                       onChange={(e) => setLandmark(e.target.value)}
-                      className="w-full px-4 py-3 border border-cafe-latte rounded-lg focus:ring-2 focus:ring-cafe-accent focus:border-cafe-accent transition-all duration-200 bg-cafe-cream"
+                      className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
                       placeholder="e.g., Near McDonald's, Beside 7-Eleven, In front of school"
                     />
                   </div>
                 </>
               )}
 
-              {/* Special Notes */}
-              <div>
-                <label className="block text-sm font-medium text-cafe-dark mb-2">Special Instructions</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-4 py-3 border border-cafe-latte rounded-lg focus:ring-2 focus:ring-cafe-accent focus:border-cafe-accent transition-all duration-200 bg-cafe-cream"
-                  placeholder="Any special requests or notes..."
-                  rows={3}
-                />
-              </div>
+              {/* City Selection - for both pickup and delivery */}
+              {(serviceType === 'pickup' || serviceType === 'delivery') && (
+                <div>
+                  <label className="block text-sm font-medium text-rca-green mb-2">City *</label>
+                  <select
+                    aria-label="City"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                    required
+                  >
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <button
                 onClick={handleProceedToPayment}
                 disabled={!isDetailsValid}
                 className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
                   isDetailsValid
-                    ? 'bg-cafe-accent text-white hover:bg-cafe-espresso hover:scale-[1.02]'
+                    ? 'bg-rca-red text-white hover:bg-rca-red-dark hover:scale-[1.02]'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
@@ -389,22 +360,22 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
 
   // Payment Step
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-8 bg-rca-off-white">
       <div className="flex items-center mb-8">
         <button
           onClick={() => setStep('details')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200"
+          className="flex items-center space-x-2 text-rca-text-light hover:text-rca-green transition-colors duration-200"
         >
           <ArrowLeft className="h-5 w-5" />
           <span>Back to Details</span>
         </button>
-        <h1 className="text-3xl font-playfair font-semibold text-cafe-dark ml-8">Payment</h1>
+        <h1 className="text-3xl font-playfair font-semibold text-rca-green ml-8">Payment</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Payment Method Selection */}
-        <div className="bg-cafe-light rounded-xl shadow-sm p-6 border border-cafe-latte">
-          <h2 className="text-2xl font-playfair font-medium text-cafe-dark mb-6">Choose Payment Method</h2>
+        <div className="bg-rca-off-white rounded-xl shadow-sm p-6 border border-rca-green/20">
+          <h2 className="text-2xl font-playfair font-medium text-rca-green mb-6">Choose Payment Method</h2>
           
           <div className="grid grid-cols-1 gap-4 mb-6">
             {effectivePaymentMethods.map((method) => (
@@ -414,8 +385,8 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
                 onClick={() => setPaymentMethod(method.id as PaymentMethod)}
                 className={`p-4 rounded-lg border-2 transition-all duration-200 flex items-center space-x-3 ${
                   paymentMethod === method.id
-                    ? 'border-cafe-accent bg-cafe-accent text-white'
-                    : 'border-cafe-latte bg-cafe-cream text-gray-700 hover:border-cafe-accent'
+                    ? 'border-rca-red bg-rca-red text-white'
+                    : 'border-rca-green/20 bg-rca-off-white text-gray-700 hover:border-rca-red'
                 }`}
               >
                 <span className="text-2xl">{method.id === 'cash' ? '💵' : '💳'}</span>
@@ -426,8 +397,8 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
 
           {/* Payment Details with QR Code (hide for cash) */}
           {selectedPaymentMethod && paymentMethod !== 'cash' && (
-            <div className="bg-cafe-beige rounded-lg p-6 mb-6 border border-cafe-latte">
-              <h3 className="font-medium text-cafe-dark mb-4">Payment Details</h3>
+            <div className="bg-rca-off-white rounded-lg p-6 mb-6 border border-rca-green/20">
+              <h3 className="font-medium text-rca-green mb-4">Payment Details</h3>
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 mb-1">{selectedPaymentMethod.name}</p>
@@ -486,13 +457,11 @@ Please confirm this order to proceed. Thank you for choosing Just Cafè! ☕
               )}
               {serviceType === 'pickup' && (
                 <p className="text-sm text-gray-600">
-                  Pickup Time: {pickupTime === 'custom' ? customTime : `${pickupTime} minutes`}
+                  Pickup Time: {pickupTime}
                 </p>
               )}
-              {serviceType === 'dine-in' && (
-                <p className="text-sm text-gray-600">
-                  Party Size: {partySize} person{partySize !== 1 ? 's' : ''}
-                </p>
+              {serviceType === 'delivery' && (
+                <p className="text-sm text-gray-600">City: {city}</p>
               )}
             </div>
 
