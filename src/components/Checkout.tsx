@@ -573,25 +573,24 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
                     // Allow only numbers
                     const inputValue = e.target.value.replace(/[^0-9]/g, '');
                     
+                    // If empty, allow empty state temporarily (will validate on blur)
                     if (inputValue === '') {
-                      setDownPaymentAmount(500);
+                      setDownPaymentAmount(0);
                       return;
                     }
                     
                     const numValue = Number(inputValue);
                     
-                    // Validate: minimum 500, maximum totalPrice
-                    if (numValue < 500) {
-                      setDownPaymentAmount(500);
-                    } else if (numValue > totalPrice) {
+                    // Only cap at maximum, don't auto-set minimum while typing
+                    if (numValue > totalPrice) {
                       setDownPaymentAmount(totalPrice);
                     } else {
                       setDownPaymentAmount(numValue);
                     }
                   }}
                   onBlur={(e) => {
-                    // Ensure minimum on blur
-                    if (downPaymentAmount < 500) {
+                    // Validate on blur: ensure minimum 500
+                    if (downPaymentAmount < 500 || downPaymentAmount === 0) {
                       setDownPaymentAmount(500);
                     }
                   }}
