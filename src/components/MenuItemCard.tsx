@@ -93,9 +93,9 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
 
   return (
     <>
-      <div className={`bg-rca-off-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group animate-scale-in border border-rca-green/20 ${!item.available ? 'opacity-60' : ''}`}>
+      <div className={`bg-rca-off-white rounded-xl sm:rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group animate-scale-in border border-rca-green/20 ${!item.available ? 'opacity-60' : ''}`}>
         {/* Image Container with Badges */}
-        <div className="relative h-48 bg-gradient-to-br from-rca-green/10 to-rca-off-white">
+        <div className="relative h-32 sm:h-40 md:h-48 bg-gradient-to-br from-rca-green/10 to-rca-off-white">
           {item.image ? (
             <img
               src={item.image}
@@ -114,112 +114,112 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
           </div>
           
           {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-col gap-2">
+          <div className="absolute top-1 left-1 sm:top-3 sm:left-3 flex flex-col gap-1 sm:gap-2">
             {item.isOnDiscount && item.discountPrice && (
-              <div className="bg-gradient-to-r from-rca-red to-rca-red-dark text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse">
+              <div className="bg-gradient-to-r from-rca-red to-rca-red-dark text-white text-[10px] sm:text-xs font-bold px-1.5 py-0.5 sm:px-3 sm:py-1.5 rounded-full shadow-lg animate-pulse">
                 SALE
               </div>
             )}
             {item.popular && (
-              <div className="bg-gradient-to-r from-rca-red/90 to-rca-red text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+              <div className="bg-gradient-to-r from-rca-red/90 to-rca-red text-white text-[10px] sm:text-xs font-bold px-1.5 py-0.5 sm:px-3 sm:py-1.5 rounded-full shadow-lg">
                 ⭐ POPULAR
               </div>
             )}
           </div>
           
           {!item.available && (
-            <div className="absolute top-3 right-3 bg-gray-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+            <div className="absolute top-1 right-1 sm:top-3 sm:right-3 bg-gray-600 text-white text-[10px] sm:text-xs font-bold px-1.5 py-0.5 sm:px-3 sm:py-1.5 rounded-full shadow-lg">
               UNAVAILABLE
             </div>
           )}
           
           {/* Discount Percentage Badge */}
           {item.isOnDiscount && item.discountPrice && (
-            <div className="absolute bottom-3 right-3 bg-rca-off-white/90 backdrop-blur-sm text-rca-red text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+            <div className="absolute bottom-1 right-1 sm:bottom-3 sm:right-3 bg-rca-off-white/90 backdrop-blur-sm text-rca-red text-[10px] sm:text-xs font-bold px-1 py-0.5 sm:px-2 sm:py-1 rounded-full shadow-lg">
               {Math.round(((item.basePrice - item.discountPrice) / item.basePrice) * 100)}% OFF
             </div>
           )}
         </div>
         
         {/* Content */}
-        <div className="p-5">
-          <div className="flex items-start justify-between mb-3">
-            <h4 className="text-lg font-semibold text-gray-900 leading-tight flex-1 pr-2">{item.name}</h4>
+        <div className="p-2 sm:p-3 md:p-5">
+          <div className="flex items-start justify-between mb-1 sm:mb-2 md:mb-3">
+            <h4 className="text-xs sm:text-sm md:text-lg font-semibold text-gray-900 leading-tight flex-1 pr-1 sm:pr-2 line-clamp-2">{item.name}</h4>
             {item.variations && item.variations.length > 0 && (
-              <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
+              <div className="text-[10px] sm:text-xs text-gray-500 bg-gray-100 px-1 py-0.5 sm:px-2 sm:py-1 rounded-full whitespace-nowrap flex-shrink-0 ml-1">
                 {item.variations.length} sizes
               </div>
             )}
           </div>
           
-          <p className={`text-sm mb-4 leading-relaxed ${!item.available ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`text-[10px] sm:text-xs md:text-sm mb-2 sm:mb-3 md:mb-4 leading-tight sm:leading-relaxed line-clamp-2 sm:line-clamp-none ${!item.available ? 'text-gray-400' : 'text-gray-600'}`}>
             {!item.available ? 'Currently Unavailable' : item.description}
           </p>
           
           {/* Pricing Section */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 mb-2 sm:mb-3 md:mb-4">
             <div className="flex-1">
               {item.isOnDiscount && item.discountPrice ? (
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-2xl font-bold text-rca-red">
+                <div className="space-y-0.5 sm:space-y-1">
+                  <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap">
+                    <span className="text-sm sm:text-lg md:text-2xl font-bold text-rca-red">
                       ₱{item.discountPrice.toFixed(2)}
                     </span>
-                    <span className="text-sm text-gray-500 line-through">
+                    <span className="text-[10px] sm:text-xs md:text-sm text-gray-500 line-through">
                       ₱{item.basePrice.toFixed(2)}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-[10px] sm:text-xs text-gray-500 hidden sm:block">
                     Save ₱{(item.basePrice - item.discountPrice).toFixed(2)}
                   </div>
                 </div>
               ) : (
-                <div className="text-2xl font-bold text-rca-green">
+                <div className="text-sm sm:text-lg md:text-2xl font-bold text-rca-green">
                   ₱{item.basePrice.toFixed(2)}
                 </div>
               )}
               
               {item.variations && item.variations.length > 0 && (
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1">
                   Starting price
                 </div>
               )}
             </div>
             
             {/* Action Buttons */}
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 w-full sm:w-auto">
               {!item.available ? (
                 <button
                   disabled
-                  className="bg-gray-200 text-gray-500 px-4 py-2.5 rounded-xl cursor-not-allowed font-medium text-sm"
+                  className="w-full sm:w-auto bg-gray-200 text-gray-500 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl cursor-not-allowed font-medium text-[10px] sm:text-xs md:text-sm"
                 >
                   Unavailable
                 </button>
               ) : quantity === 0 ? (
                 <button
                   onClick={handleAddToCart}
-                  className="bg-rca-red text-white px-6 py-2.5 rounded-xl hover:bg-rca-red-dark transition-all duration-200 transform hover:scale-105 font-medium text-sm shadow-lg hover:shadow-xl"
+                  className="w-full sm:w-auto bg-rca-red text-white px-2 py-1.5 sm:px-4 md:px-6 sm:py-2 md:py-2.5 rounded-lg sm:rounded-xl hover:bg-rca-red-dark transition-all duration-200 transform hover:scale-105 font-medium text-[10px] sm:text-xs md:text-sm shadow-lg hover:shadow-xl"
                 >
-                  {item.variations?.length || item.addOns?.length ? 'Customize' : 'Add to Cart'}
+                  {item.variations?.length || item.addOns?.length ? 'Customize' : 'Add'}
                 </button>
               ) : (
-                <div className="flex items-center space-x-2 bg-rca-off-white rounded-xl p-1 border border-rca-green/20">
+                <div className="flex items-center justify-center sm:justify-start space-x-1 sm:space-x-2 bg-rca-off-white rounded-lg sm:rounded-xl p-0.5 sm:p-1 border border-rca-green/20">
                   <button
                     onClick={handleDecrement}
                     title="Decrease quantity"
                     aria-label="Decrease quantity"
-                    className="p-2 hover:bg-rca-green/10 rounded-lg transition-colors duration-200 hover:scale-110"
+                    className="p-1 sm:p-2 hover:bg-rca-green/10 rounded-lg transition-colors duration-200 hover:scale-110"
                   >
-                    <Minus className="h-4 w-4 text-rca-green" />
+                    <Minus className="h-3 w-3 sm:h-4 sm:w-4 text-rca-green" />
                   </button>
-                  <span className="font-bold text-rca-green min-w-[28px] text-center text-sm">{quantity}</span>
+                  <span className="font-bold text-rca-green min-w-[20px] sm:min-w-[28px] text-center text-xs sm:text-sm">{quantity}</span>
                   <button
                     onClick={handleIncrement}
                     title="Increase quantity"
                     aria-label="Increase quantity"
-                    className="p-2 hover:bg-rca-green/10 rounded-lg transition-colors duration-200 hover:scale-110"
+                    className="p-1 sm:p-2 hover:bg-rca-green/10 rounded-lg transition-colors duration-200 hover:scale-110"
                   >
-                    <Plus className="h-4 w-4 text-rca-green" />
+                    <Plus className="h-3 w-3 sm:h-4 sm:w-4 text-rca-green" />
                   </button>
                 </div>
               )}
@@ -228,7 +228,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
 
           {/* Add-ons indicator */}
           {item.addOns && item.addOns.length > 0 && (
-            <div className="flex items-center space-x-1 text-xs text-gray-500 bg-rca-off-white px-2 py-1 rounded-lg border border-rca-green/20">
+            <div className="hidden sm:flex items-center space-x-1 text-[10px] sm:text-xs text-gray-500 bg-rca-off-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg border border-rca-green/20">
               <span>+</span>
               <span>{item.addOns.length} add-on{item.addOns.length > 1 ? 's' : ''} available</span>
             </div>

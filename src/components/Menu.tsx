@@ -108,7 +108,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
               <h3 className="text-3xl font-playfair font-medium text-rca-green">{category.name}</h3>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-2 gap-2 sm:gap-4 md:gap-6">
               {categoryItems.map((item) => {
                 // Find cart items that match this menu item (by extracting menu item id from cart item id)
                 // For simple items without variations/add-ons, sum all matching cart items
