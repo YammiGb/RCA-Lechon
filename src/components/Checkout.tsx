@@ -22,7 +22,18 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const [address, setAddress] = useState('');
   const [landmark, setLandmark] = useState('');
   const [city, setCity] = useState('Lapu-Lapu City');
+  const [pickupDate, setPickupDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
   const [pickupTime, setPickupTime] = useState('12:00');
+  const [deliveryDate, setDeliveryDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
+  const [deliveryTime, setDeliveryTime] = useState('12:00');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
 
   const SHOP_ADDRESS = 'Gabi Road, Cordova, Lapu-Lapu City';
@@ -73,16 +84,18 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
       return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
     };
 
+    const formatDate = (dateString: string) => {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    };
+
     const dateTimeDisplay = serviceType === 'pickup'
-      ? formatTimeWithAMPM(pickupTime)
-      : new Date().toLocaleString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        });
+      ? `${formatDate(pickupDate)} at ${formatTimeWithAMPM(pickupTime)}`
+      : `${formatDate(deliveryDate)} at ${formatTimeWithAMPM(deliveryTime)}`;
 
     const orderDetails = `
 Date & Time: ${dateTimeDisplay}
@@ -130,8 +143,8 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
   const isDeliveryMinimumMet = serviceType !== 'delivery' || totalPrice >= MINIMUM_DELIVERY_AMOUNT;
   
   const isDetailsValid = customerName && contactNumber && 
-    (serviceType !== 'delivery' || (address && city)) && 
-    (serviceType !== 'pickup' || pickupTime) &&
+    (serviceType !== 'delivery' || (address && city && deliveryDate && deliveryTime)) && 
+    (serviceType !== 'pickup' || (pickupDate && pickupTime)) &&
     isDeliveryMinimumMet;
 
   if (step === 'details') {
@@ -271,30 +284,44 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
                 )}
               </div>
 
-              {/* Pickup Time Selection */}
+              {/* Pickup Date and Time Selection */}
               {serviceType === 'pickup' && (
-                <div>
-                  <label className="block text-sm font-medium text-rca-green mb-2">Pickup Time *</label>
-                  <p className="text-sm text-rca-text-light mb-3">Shop closes at 8:00 PM</p>
-                  <input
-                    type="time"
-                    aria-label="Pickup Time"
-                    value={pickupTime}
-                    onChange={(e) => {
-                      const time = e.target.value;
-                      const [hours] = time.split(':').map(Number);
-                      if (hours < 20) {
-                        setPickupTime(time);
-                      }
-                    }}
-                    className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
-                    max="19:59"
-                    required
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-rca-green mb-2">Pickup Date *</label>
+                    <input
+                      type="date"
+                      aria-label="Pickup Date"
+                      value={pickupDate}
+                      onChange={(e) => setPickupDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-rca-green mb-2">Pickup Time *</label>
+                    <p className="text-sm text-rca-text-light mb-3">Shop closes at 8:00 PM</p>
+                    <input
+                      type="time"
+                      aria-label="Pickup Time"
+                      value={pickupTime}
+                      onChange={(e) => {
+                        const time = e.target.value;
+                        const [hours] = time.split(':').map(Number);
+                        if (hours < 20) {
+                          setPickupTime(time);
+                        }
+                      }}
+                      className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                      max="19:59"
+                      required
+                    />
+                  </div>
+                </>
               )}
 
-              {/* Delivery Address */}
+              {/* Delivery Address, Date and Time */}
               {serviceType === 'delivery' && (
                 <>
                   <div>
@@ -317,6 +344,40 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
                       onChange={(e) => setLandmark(e.target.value)}
                       className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
                       placeholder="e.g., Near McDonald's, Beside 7-Eleven, In front of school"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-rca-green mb-2">Delivery Date *</label>
+                    <input
+                      type="date"
+                      aria-label="Delivery Date"
+                      value={deliveryDate}
+                      onChange={(e) => setDeliveryDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-rca-green mb-2">Delivery Time *</label>
+                    <p className="text-sm text-rca-text-light mb-3">Delivery hours: 9:00 AM - 8:00 PM</p>
+                    <input
+                      type="time"
+                      aria-label="Delivery Time"
+                      value={deliveryTime}
+                      onChange={(e) => {
+                        const time = e.target.value;
+                        const [hours] = time.split(':').map(Number);
+                        if (hours >= 9 && hours < 20) {
+                          setDeliveryTime(time);
+                        }
+                      }}
+                      className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                      min="09:00"
+                      max="19:59"
+                      required
                     />
                   </div>
                 </>
@@ -456,12 +517,25 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
                 </>
               )}
               {serviceType === 'pickup' && (
-                <p className="text-sm text-gray-600">
-                  Pickup Time: {pickupTime}
-                </p>
+                <>
+                  <p className="text-sm text-gray-600">
+                    Pickup Date: {new Date(pickupDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Pickup Time: {pickupTime}
+                  </p>
+                </>
               )}
               {serviceType === 'delivery' && (
-                <p className="text-sm text-gray-600">City: {city}</p>
+                <>
+                  <p className="text-sm text-gray-600">City: {city}</p>
+                  <p className="text-sm text-gray-600">
+                    Delivery Date: {new Date(deliveryDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Delivery Time: {deliveryTime}
+                  </p>
+                </>
               )}
             </div>
 
