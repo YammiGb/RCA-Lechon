@@ -35,32 +35,36 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   });
   const [deliveryTime, setDeliveryTime] = useState('12:00');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
+  const [paymentType, setPaymentType] = useState<'down-payment' | 'full-payment'>('full-payment');
+  const [downPaymentAmount, setDownPaymentAmount] = useState<number>(500);
 
   const SHOP_ADDRESS = 'Gabi Road, Cordova, Lapu-Lapu City';
   const CITIES = ['Lapu-Lapu City', 'Cebu City', 'Mandaue City', 'Talisay', 'Minglanilla', 'Consolacion', 'Liloan'];
+
+  // Generate time slots with 30-minute intervals (9:00 AM to 7:30 PM)
+  const generateTimeSlots = () => {
+    const slots: string[] = [];
+    for (let hour = 9; hour < 20; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00`);
+      slots.push(`${hour.toString().padStart(2, '0')}:30`);
+    }
+    return slots;
+  };
+
+  const pickupTimeSlots = generateTimeSlots();
+  const deliveryTimeSlots = generateTimeSlots();
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [step]);
 
-  // Build effective payment methods list including Cash (Onsite)
-  const cashMethod = {
-    id: 'cash',
-    name: 'Cash (Onsite)',
-    account_number: '',
-    account_name: '',
-    qr_code_url: '',
-    active: true,
-    sort_order: 999,
-    created_at: '',
-    updated_at: ''
-  } as any;
-  const effectivePaymentMethods = [...paymentMethods, cashMethod];
+  // Use payment methods from database
+  const effectivePaymentMethods = paymentMethods;
 
   // Set default payment method when payment methods are loaded
   React.useEffect(() => {
     if (effectivePaymentMethods.length > 0 && !paymentMethod) {
-      setPaymentMethod((effectivePaymentMethods[0].id as PaymentMethod) || 'cash');
+      setPaymentMethod((effectivePaymentMethods[0].id as PaymentMethod) || 'gcash');
     }
   }, [effectivePaymentMethods, paymentMethod]);
 
@@ -126,11 +130,14 @@ ${cartItems.map(item => {
 }).join('\n')}
 
 Total Amount: ₱${totalPrice}
+Payment Type: ${paymentType === 'down-payment' ? 'Down Payment' : 'Full Payment'}
+Payment Amount: ₱${paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
+${paymentType === 'down-payment' ? `Remaining Balance: ₱${totalPrice - downPaymentAmount}` : ''}
 
 Service Type: ${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)}
 ${serviceType === 'delivery' ? `City: ${city}` : ''}
 Payment Method: ${selectedPaymentMethod?.name || paymentMethod}
-${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your payment receipt screenshot'}
+Payment Screenshot: Please attach your payment receipt screenshot
     `.trim();
 
     const encodedMessage = encodeURIComponent(orderDetails);
@@ -288,6 +295,20 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
               {serviceType === 'pickup' && (
                 <>
                   <div>
+                    <label className="block text-sm font-medium text-rca-green mb-2">City *</label>
+                    <select
+                      aria-label="City"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                      required
+                    >
+                      {CITIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-rca-green mb-2">Pickup Date *</label>
                     <input
                       type="date"
@@ -302,21 +323,24 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
                   <div>
                     <label className="block text-sm font-medium text-rca-green mb-2">Pickup Time *</label>
                     <p className="text-sm text-rca-text-light mb-3">Shop closes at 8:00 PM</p>
-                    <input
-                      type="time"
-                      aria-label="Pickup Time"
+                    <select
                       value={pickupTime}
-                      onChange={(e) => {
-                        const time = e.target.value;
-                        const [hours] = time.split(':').map(Number);
-                        if (hours < 20) {
-                          setPickupTime(time);
-                        }
-                      }}
+                      onChange={(e) => setPickupTime(e.target.value)}
                       className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
-                      max="19:59"
                       required
-                    />
+                    >
+                      {pickupTimeSlots.map((time) => {
+                        const [hours, minutes] = time.split(':').map(Number);
+                        const ampm = hours >= 12 ? 'PM' : 'AM';
+                        const displayHours = hours % 12 || 12;
+                        const displayTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+                        return (
+                          <option key={time} value={time}>
+                            {displayTime}
+                          </option>
+                        );
+                      })}
+                    </select>
                   </div>
                 </>
               )}
@@ -324,6 +348,20 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
               {/* Delivery Address, Date and Time */}
               {serviceType === 'delivery' && (
                 <>
+                  <div>
+                    <label className="block text-sm font-medium text-rca-green mb-2">City *</label>
+                    <select
+                      aria-label="City"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                      required
+                    >
+                      {CITIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-rca-green mb-2">Delivery Address *</label>
                     <textarea
@@ -362,43 +400,27 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
 
                   <div>
                     <label className="block text-sm font-medium text-rca-green mb-2">Delivery Time *</label>
-                    <p className="text-sm text-rca-text-light mb-3">Delivery hours: 9:00 AM - 8:00 PM</p>
-                    <input
-                      type="time"
-                      aria-label="Delivery Time"
+                    <p className="text-sm text-rca-text-light mb-3">Delivery hours: 9:00 AM - 7:30 PM</p>
+                    <select
                       value={deliveryTime}
-                      onChange={(e) => {
-                        const time = e.target.value;
-                        const [hours] = time.split(':').map(Number);
-                        if (hours >= 9 && hours < 20) {
-                          setDeliveryTime(time);
-                        }
-                      }}
+                      onChange={(e) => setDeliveryTime(e.target.value)}
                       className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
-                      min="09:00"
-                      max="19:59"
                       required
-                    />
+                    >
+                      {deliveryTimeSlots.map((time) => {
+                        const [hours, minutes] = time.split(':').map(Number);
+                        const ampm = hours >= 12 ? 'PM' : 'AM';
+                        const displayHours = hours % 12 || 12;
+                        const displayTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+                        return (
+                          <option key={time} value={time}>
+                            {displayTime}
+                          </option>
+                        );
+                      })}
+                    </select>
                   </div>
                 </>
-              )}
-
-              {/* City Selection - for both pickup and delivery */}
-              {(serviceType === 'pickup' || serviceType === 'delivery') && (
-                <div>
-                  <label className="block text-sm font-medium text-rca-green mb-2">City *</label>
-                  <select
-                    aria-label="City"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
-                    required
-                  >
-                    {CITIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
               )}
 
               <div className="pb-4 sm:pb-0">
@@ -438,7 +460,82 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Payment Method Selection */}
         <div className="bg-rca-off-white rounded-xl shadow-sm p-6 border border-rca-green/20">
-          <h2 className="text-2xl font-playfair font-medium text-rca-green mb-6">Choose Payment Method</h2>
+          <h2 className="text-2xl font-playfair font-medium text-rca-green mb-6">Payment Options</h2>
+          
+          {/* Payment Type Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-rca-green mb-3">Payment Type *</label>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentType('down-payment');
+                  if (downPaymentAmount < 500) {
+                    setDownPaymentAmount(500);
+                  } else if (downPaymentAmount > totalPrice) {
+                    setDownPaymentAmount(totalPrice);
+                  }
+                }}
+                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                  paymentType === 'down-payment'
+                    ? 'border-rca-red bg-rca-red text-white'
+                    : 'border-rca-green/20 bg-rca-off-white text-gray-700 hover:border-rca-red'
+                }`}
+              >
+                <div className="text-lg font-medium">Down Payment</div>
+                <div className="text-xs mt-1 opacity-90">Minimum ₱500</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentType('full-payment')}
+                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                  paymentType === 'full-payment'
+                    ? 'border-rca-red bg-rca-red text-white'
+                    : 'border-rca-green/20 bg-rca-off-white text-gray-700 hover:border-rca-red'
+                }`}
+              >
+                <div className="text-lg font-medium">Full Payment</div>
+                <div className="text-xs mt-1 opacity-90">₱{totalPrice}</div>
+              </button>
+            </div>
+
+            {/* Down Payment Amount Input */}
+            {paymentType === 'down-payment' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-rca-green mb-2">
+                  Down Payment Amount * (Minimum ₱500)
+                </label>
+                <input
+                  type="number"
+                  min={500}
+                  max={totalPrice}
+                  value={downPaymentAmount}
+                  onChange={(e) => {
+                    const value = Math.max(500, Math.min(Number(e.target.value), totalPrice));
+                    setDownPaymentAmount(value);
+                  }}
+                  className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                  placeholder="Enter amount (minimum ₱500)"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Remaining balance: ₱{totalPrice - downPaymentAmount}
+                </p>
+              </div>
+            )}
+
+            {/* Full Payment Display */}
+            {paymentType === 'full-payment' && (
+              <div className="mb-4 p-4 bg-rca-green/5 rounded-lg border border-rca-green/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-rca-green">Full Payment Amount:</span>
+                  <span className="text-xl font-bold text-rca-red">₱{totalPrice}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <h3 className="text-xl font-playfair font-medium text-rca-green mb-4">Choose Payment Method</h3>
           
           <div className="grid grid-cols-1 gap-4 mb-6">
             {effectivePaymentMethods.map((method) => (
@@ -452,14 +549,14 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
                     : 'border-rca-green/20 bg-rca-off-white text-gray-700 hover:border-rca-red'
                 }`}
               >
-                <span className="text-2xl">{method.id === 'cash' ? '💵' : '💳'}</span>
+                <span className="text-2xl">💳</span>
                 <span className="font-medium">{method.name}</span>
               </button>
             ))}
           </div>
 
-          {/* Payment Details with QR Code (hide for cash) */}
-          {selectedPaymentMethod && paymentMethod !== 'cash' && (
+          {/* Payment Details with QR Code */}
+          {selectedPaymentMethod && (
             <div className="bg-rca-off-white rounded-lg p-6 mb-6 border border-rca-green/20">
               <h3 className="font-medium text-rca-green mb-4">Payment Details</h3>
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -467,7 +564,14 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
                   <p className="text-sm text-gray-600 mb-1">{selectedPaymentMethod.name}</p>
                   <p className="font-mono text-cafe-dark font-medium">{selectedPaymentMethod.account_number}</p>
                   <p className="text-sm text-gray-600 mb-3">Account Name: {selectedPaymentMethod.account_name}</p>
-                  <p className="text-xl font-semibold text-cafe-accent">Amount: ₱{totalPrice}</p>
+                  <p className="text-xl font-semibold text-cafe-accent">
+                    Amount: ₱{paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
+                  </p>
+                  {paymentType === 'down-payment' && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Remaining: ₱{totalPrice - downPaymentAmount}
+                    </p>
+                  )}
                 </div>
                 <div className="flex-shrink-0">
                   <img 
@@ -484,22 +588,13 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
             </div>
           )}
 
-          {/* Payment instructions: show proof section only for non-cash */}
-          {paymentMethod !== 'cash' ? (
-            <div className="bg-cafe-cream border border-cafe-latte rounded-lg p-4">
-              <h4 className="font-medium text-cafe-dark mb-2">📸 Payment Proof Required</h4>
-              <p className="text-sm text-gray-700">
-                After making your payment, please take a screenshot of your payment receipt and attach it when you send your order via Messenger. This helps us verify and process your order quickly.
-              </p>
-            </div>
-          ) : (
-            <div className="bg-cafe-cream border border-cafe-latte rounded-lg p-4">
-              <h4 className="font-medium text-cafe-dark mb-2">💵 Pay with Cash Onsite</h4>
-              <p className="text-sm text-gray-700">
-                Please proceed to the counter and pay in cash when you arrive. No payment screenshot needed.
-              </p>
-            </div>
-          )}
+          {/* Payment instructions */}
+          <div className="bg-cafe-cream border border-cafe-latte rounded-lg p-4">
+            <h4 className="font-medium text-cafe-dark mb-2">📸 Payment Proof Required</h4>
+            <p className="text-sm text-gray-700">
+              After making your payment, please take a screenshot of your payment receipt and attach it when you send your order via Messenger. This helps us verify and process your order quickly.
+            </p>
+          </div>
         </div>
 
         {/* Order Summary */}
@@ -564,9 +659,31 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
             ))}
           </div>
           
-          <div className="border-t border-cafe-latte pt-4 mb-6">
-            <div className="flex items-center justify-between text-2xl font-playfair font-semibold text-cafe-dark">
-              <span>Total:</span>
+          <div className="border-t border-cafe-latte pt-4 mb-4">
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-600">Payment Type:</span>
+                <span className="text-sm font-semibold text-cafe-dark">
+                  {paymentType === 'down-payment' ? 'Down Payment' : 'Full Payment'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-600">Payment Amount:</span>
+                <span className="text-lg font-semibold text-cafe-accent">
+                  ₱{paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
+                </span>
+              </div>
+              {paymentType === 'down-payment' && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">Remaining Balance:</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    ₱{totalPrice - downPaymentAmount}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between text-2xl font-playfair font-semibold text-cafe-dark border-t border-cafe-latte pt-4">
+              <span>Total Amount:</span>
               <span className="text-cafe-accent">₱{totalPrice}</span>
             </div>
           </div>

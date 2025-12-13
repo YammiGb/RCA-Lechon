@@ -3,9 +3,12 @@
   
   This migration:
   - Creates all necessary tables, functions, and policies
-  - Removes all existing menu items and categories
+  - Preserves existing menu items and their images (DELETE statements are commented out)
   - Adds the new "Bilao" category
   - Populates the menu with Bilao items
+  
+  IMPORTANT: This migration preserves existing menu items by default.
+  If you want to clear existing items, uncomment the DELETE statements below.
 */
 
 -- ============================================
@@ -106,6 +109,86 @@ BEGIN
     WHERE table_name = 'menu_items' AND column_name = 'discount_active'
   ) THEN
     ALTER TABLE menu_items ADD COLUMN discount_active boolean DEFAULT false;
+  END IF;
+END $$;
+
+-- ============================================
+-- Create payment_methods table
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS payment_methods (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  account_number text NOT NULL,
+  account_name text NOT NULL,
+  qr_code_url text NOT NULL,
+  active boolean DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE payment_methods ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for public read access
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'payment_methods' AND policyname = 'Anyone can read active payment methods'
+  ) THEN
+    CREATE POLICY "Anyone can read active payment methods"
+      ON payment_methods
+      FOR SELECT
+      TO public
+      USING (active = true);
+  END IF;
+END $$;
+
+-- Create policies for authenticated admin access
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'payment_methods' AND policyname = 'Authenticated users can manage payment methods'
+  ) THEN
+    CREATE POLICY "Authenticated users can manage payment methods"
+      ON payment_methods
+      FOR ALL
+      TO authenticated
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Create policies for public access (for admin dashboard without auth)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'payment_methods' AND policyname = 'Public can manage payment methods'
+  ) THEN
+    CREATE POLICY "Public can manage payment methods"
+      ON payment_methods
+      FOR ALL
+      TO public
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Create updated_at trigger for payment_methods
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid
+    WHERE t.tgname = 'update_payment_methods_updated_at'
+  ) THEN
+    CREATE TRIGGER update_payment_methods_updated_at
+      BEFORE UPDATE ON payment_methods
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
   END IF;
 END $$;
 
@@ -286,15 +369,20 @@ SET sort_order = (
 )
 WHERE mi.sort_order IS NULL;
 
--- Delete old items from the new categories to ensure clean data
-DELETE FROM menu_items 
-WHERE category IN ('lechon-belly', 'bilao', 'food-tray');
-
 -- ============================================
 -- Clear existing data (optional - comment out if you want to preserve existing items)
 -- ============================================
 
--- Uncomment the lines below only if you want to delete all items and categories on each run
+-- NOTE: The following DELETE statements will remove existing menu items and their image references.
+-- If you have uploaded images that you want to keep, DO NOT run these DELETE statements.
+-- The images themselves will remain in storage, but the database references will be lost.
+
+-- Delete old items from the new categories to ensure clean data (COMMENTED OUT to preserve existing items)
+-- Uncomment the line below ONLY if you want to remove existing items from these categories
+-- DELETE FROM menu_items 
+-- WHERE category IN ('lechon-belly', 'bilao', 'food-tray');
+
+-- Uncomment the lines below only if you want to delete ALL items and categories on each run
 -- DELETE FROM menu_items;
 -- DELETE FROM categories;
 
@@ -407,6 +495,33 @@ BEGIN
     2900.00,
     'bilao',
     10
+  );
+
+  -- Kakanin Bilao - sort_order 11
+  PERFORM insert_bilao_item_if_not_exists(
+    'Kakanin Bilao',
+    'Assorted Filipino rice cakes (kakanin) including puto, sapin-sapin, ube, and other traditional desserts. Perfect for celebrations and special occasions.',
+    600.00,
+    'bilao',
+    11
+  );
+
+  -- Budget Bilao A + Kakanin Bilao - sort_order 12
+  PERFORM insert_bilao_item_if_not_exists(
+    'Budget Bilao A + Kakanin Bilao',
+    'Budget Bilao A (Shrimp, Calamares, Fish Fillet, Special Baem-e, Lumpia 40pcs) paired with Kakanin Bilao. Good for 10-12 pax',
+    2700.00,
+    'bilao',
+    12
+  );
+
+  -- Budget Bilao B + Kakanin Bilao - sort_order 13
+  PERFORM insert_bilao_item_if_not_exists(
+    'Budget Bilao B + Kakanin Bilao',
+    'Budget Bilao B (Scallops, Calamares, Fish Fillet, Cordon Bleu, Shrimp) paired with Kakanin Bilao. Good for 10-12 pax',
+    3000.00,
+    'bilao',
+    13
   );
 
 END $$;

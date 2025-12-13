@@ -50,13 +50,30 @@ export const useImageUpload = () => {
       setUploadProgress(100);
 
       if (error) {
-        throw error;
+        console.error('Supabase storage upload error:', error);
+        // Provide more helpful error messages
+        if (error.message?.includes('Bucket not found') || error.message?.includes('does not exist')) {
+          throw new Error('Storage bucket not configured. Please contact administrator.');
+        } else if (error.message?.includes('new row violates row-level security')) {
+          throw new Error('Upload permission denied. Please check storage bucket policies.');
+        } else if (error.message?.includes('duplicate')) {
+          throw new Error('File with this name already exists. Please try again.');
+        }
+        throw new Error(error.message || 'Failed to upload image. Please try again.');
+      }
+
+      if (!data?.path) {
+        throw new Error('Upload failed: No file path returned');
       }
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('menu-images')
         .getPublicUrl(data.path);
+
+      if (!publicUrl) {
+        throw new Error('Failed to get image URL');
+      }
 
       return publicUrl;
     } catch (error) {
@@ -70,20 +87,52 @@ export const useImageUpload = () => {
 
   const deleteImage = async (imageUrl: string): Promise<void> => {
     try {
+      if (!imageUrl) {
+        return; // No image to delete
+      }
+
       // Extract file path from URL
-      const urlParts = imageUrl.split('/');
-      const fileName = urlParts[urlParts.length - 1];
+      // URL format: https://[project].supabase.co/storage/v1/object/public/menu-images/[filename]
+      let filePath = imageUrl;
+      
+      // If it's a full URL, extract the path
+      if (imageUrl.includes('/storage/v1/object/public/menu-images/')) {
+        const parts = imageUrl.split('/storage/v1/object/public/menu-images/');
+        filePath = parts[1] || parts[0];
+      } else if (imageUrl.includes('/menu-images/')) {
+        const parts = imageUrl.split('/menu-images/');
+        filePath = parts[1] || parts[0];
+      } else {
+        // Assume it's just the filename
+        const urlParts = imageUrl.split('/');
+        filePath = urlParts[urlParts.length - 1];
+      }
+
+      // Remove query parameters if any
+      filePath = filePath.split('?')[0];
+
+      if (!filePath) {
+        console.warn('Could not extract file path from URL:', imageUrl);
+        return;
+      }
 
       const { error } = await supabase.storage
         .from('menu-images')
-        .remove([fileName]);
+        .remove([filePath]);
 
       if (error) {
-        throw error;
+        console.error('Supabase storage delete error:', error);
+        // Don't throw error if file doesn't exist (might have been already deleted)
+        if (!error.message?.includes('not found') && !error.message?.includes('does not exist')) {
+          throw new Error(error.message || 'Failed to delete image');
+        }
       }
     } catch (error) {
       console.error('Error deleting image:', error);
-      throw error;
+      // Don't throw - allow deletion to fail silently in some cases
+      if (error instanceof Error && !error.message.includes('not found')) {
+        throw error;
+      }
     }
   };
 
