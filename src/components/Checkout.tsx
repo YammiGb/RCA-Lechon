@@ -150,21 +150,55 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     parts.push('');
     
     // Format payment info - add directly to parts to avoid newline issues
+    const paymentMethodName = selectedPaymentMethod?.name || paymentMethod || 'GCash';
+    
     if (paymentType === 'down-payment') {
       const remainingBalance = totalPrice - downPaymentAmount;
       parts.push(`${totalPrice}-${downPaymentAmount} DP`);
       parts.push('');
-      parts.push(`${remainingBalance} Bal. ${selectedPaymentMethod?.name || paymentMethod}`);
+      parts.push(`${remainingBalance} Bal. ${paymentMethodName}`);
     } else {
       // Full payment format
-      parts.push(`${totalPrice} ${selectedPaymentMethod?.name || paymentMethod}`);
+      parts.push(`${totalPrice} ${paymentMethodName}`);
     }
     
+    // Ensure all required values are present
+    if (!dateTimeDisplay || !customerName || !contactNumber || cartItems.length === 0) {
+      alert('Please fill in all required fields before placing your order.');
+      return;
+    }
+
+    // Ensure address is present for delivery
+    if (serviceType === 'delivery' && !completeAddress) {
+      alert('Please enter your delivery address.');
+      return;
+    }
+
     const orderDetails = parts.join('\n');
+    
+    // Validate message is not empty
+    if (!orderDetails || orderDetails.trim().length === 0) {
+      console.error('Order message is empty!', { parts, dateTimeDisplay, customerName, contactNumber, cartItems });
+      alert('Error: Unable to generate order message. Please try again.');
+      return;
+    }
+    
+    // Debug: Log the message to console (remove in production if needed)
+    console.log('Order message:', orderDetails);
+    console.log('Message length:', orderDetails.length);
 
     // Use encodeURIComponent and handle URL length limits
     try {
+      // Ensure message is not empty
+      if (!orderDetails || orderDetails.trim().length === 0) {
+        alert('Error: Order message is empty. Please try again.');
+        return;
+      }
+      
       const encodedMessage = encodeURIComponent(orderDetails);
+      
+      // Debug: Log encoded message
+      console.log('Encoded message length:', encodedMessage.length);
       
       // Check if URL is too long (Messenger has ~2000 character limit for URLs)
       if (encodedMessage.length > 1800) {
@@ -175,33 +209,45 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
       
       const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
       
+      // Debug: Log the final URL (first 200 chars)
+      console.log('Messenger URL (preview):', messengerUrl.substring(0, 200) + '...');
+      
+      // Verify the URL is valid
+      try {
+        new URL(messengerUrl);
+      } catch (urlError) {
+        console.error('Invalid URL generated:', messengerUrl);
+        alert('Error: Invalid URL generated. Please check the console for details.');
+        return;
+      }
+      
       // Universal approach that works on iOS, Android, and Desktop
       // The m.me URL will automatically:
       // - Open Messenger app if installed on mobile
       // - Open in browser if app is not installed
       // - Open in new tab on desktop
       
-      // Create a temporary link and click it (more reliable across devices)
-      const link = document.createElement('a');
-      link.href = messengerUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      
       // For mobile devices, use location.href (works better for app deep linking)
-      // For desktop, use the link click method
+      // For desktop, use window.open
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       
       if (isMobile) {
         // Mobile: Direct navigation works better for app deep linking
-        window.location.href = messengerUrl;
+        // Use setTimeout to ensure the navigation happens
+        setTimeout(() => {
+          window.location.href = messengerUrl;
+        }, 100);
       } else {
-        // Desktop: Use link click to open in new tab
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Desktop: Use window.open
+        const newWindow = window.open(messengerUrl, '_blank', 'noopener,noreferrer');
+        if (!newWindow) {
+          // If popup blocked, try location.href as fallback
+          window.location.href = messengerUrl;
+        }
       }
     } catch (error) {
       console.error('Error generating Messenger URL:', error);
+      console.error('Order details that failed:', orderDetails);
       alert('Error generating order message. Please try again.');
     }
     
