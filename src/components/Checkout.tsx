@@ -85,60 +85,72 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
       const [hours, minutes] = timeString.split(':').map(Number);
       const ampm = hours >= 12 ? 'PM' : 'AM';
       const displayHours = hours % 12 || 12;
+      // If minutes are 00, don't show minutes
+      if (minutes === 0) {
+        return `${displayHours}${ampm}`;
+      }
       return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
     };
 
     const formatDate = (dateString: string) => {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
+      const months = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.', 'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'];
+      const month = months[date.getMonth()];
+      const day = date.getDate();
+      const year = date.getFullYear();
+      return `${month} ${day}, ${year}`;
     };
 
-    const dateTimeDisplay = serviceType === 'pickup'
-      ? `${formatDate(pickupDate)} at ${formatTimeWithAMPM(pickupTime)}`
-      : `${formatDate(deliveryDate)} at ${formatTimeWithAMPM(deliveryTime)}`;
+    const selectedDate = serviceType === 'pickup' ? pickupDate : deliveryDate;
+    const selectedTime = serviceType === 'pickup' ? pickupTime : deliveryTime;
+    const dateTimeDisplay = `${formatDate(selectedDate)} ${formatTimeWithAMPM(selectedTime)}`;
 
-    const orderDetails = `
-Date & Time: ${dateTimeDisplay}
+    // Format order items: price first, then item name
+    const orderItemsText = cartItems.map(item => {
+      const itemPrice = item.totalPrice * item.quantity;
+      let itemName = item.name;
+      
+      if (item.selectedVariation) {
+        itemName += ` ${item.selectedVariation.name}`;
+      }
+      if (item.selectedAddOns && item.selectedAddOns.length > 0) {
+        itemName += ` + ${item.selectedAddOns.map(addOn => 
+          addOn.quantity && addOn.quantity > 1 
+            ? `${addOn.name} x${addOn.quantity}`
+            : addOn.name
+        ).join(', ')}`;
+      }
+      if (item.quantity > 1) {
+        itemName += ` x${item.quantity}`;
+      }
+      
+      // Format: "2900 Lechon Belly 5kg" (price first, then name)
+      return `${itemPrice} ${itemName}`;
+    }).join('\n');
 
-Complete Address: ${completeAddress}
-${landmarkInfo ? `\nLandmark: ${landmarkInfo}` : ''}
+    // Format payment info
+    let paymentInfo = '';
+    if (paymentType === 'down-payment') {
+      const remainingBalance = totalPrice - downPaymentAmount;
+      paymentInfo = `${totalPrice}-${downPaymentAmount} DP\n\n${remainingBalance} Bal. ${selectedPaymentMethod?.name || paymentMethod}`;
+    } else {
+      paymentInfo = `${totalPrice} ${selectedPaymentMethod?.name || paymentMethod}`;
+    }
 
-Full Name: ${customerName}
+    const orderDetails = `${dateTimeDisplay}
 
-Mobile No 1: ${contactNumber}
-Mobile No 2: 
+${completeAddress.toLowerCase()}
 
-Order Details: 
-${cartItems.map(item => {
-  let itemDetails = `${item.name}`;
-  if (item.selectedVariation) {
-    itemDetails += ` (${item.selectedVariation.name})`;
-  }
-  if (item.selectedAddOns && item.selectedAddOns.length > 0) {
-    itemDetails += ` + ${item.selectedAddOns.map(addOn => 
-      addOn.quantity && addOn.quantity > 1 
-        ? `${addOn.name} x${addOn.quantity}`
-        : addOn.name
-    ).join(', ')}`;
-  }
-  itemDetails += ` x${item.quantity} - ₱${item.totalPrice * item.quantity}`;
-  return itemDetails;
-}).join('\n')}
+${landmarkInfo ? `${landmarkInfo.toLowerCase()}\n` : ''}
 
-Total Amount: ₱${totalPrice}
-Payment Type: ${paymentType === 'down-payment' ? 'Down Payment' : 'Full Payment'}
-Payment Amount: ₱${paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
-${paymentType === 'down-payment' ? `Remaining Balance: ₱${totalPrice - downPaymentAmount}` : ''}
+${customerName}
 
-Service Type: ${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)}
-${serviceType === 'delivery' ? `City: ${city}` : ''}
-Payment Method: ${selectedPaymentMethod?.name || paymentMethod}
-Payment Screenshot: Please attach your payment receipt screenshot
-    `.trim();
+${contactNumber}
+
+
+${orderItemsText}
+
+${paymentInfo}`;
 
     const encodedMessage = encodeURIComponent(orderDetails);
     const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
