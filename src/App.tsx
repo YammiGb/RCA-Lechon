@@ -30,7 +30,7 @@ function MainApp() {
     : menuItems.filter(item => item.category === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-cafe-light font-inter">
+    <div className="min-h-screen bg-cafe-light font-inter overflow-y-auto">
       <Header 
         cartItemsCount={cart.getTotalItems()}
         onCartClick={() => handleViewChange('cart')}

@@ -149,7 +149,7 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
 
   if (step === 'details') {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-4 sm:py-8 pb-32 sm:pb-8">
         <div className="flex items-center mb-8">
           <button
             onClick={onBack}
@@ -401,17 +401,19 @@ ${paymentMethod === 'cash' ? '' : 'Payment Screenshot: Please attach your paymen
                 </div>
               )}
 
-              <button
-                onClick={handleProceedToPayment}
-                disabled={!isDetailsValid}
-                className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
-                  isDetailsValid
-                    ? 'bg-rca-red text-white hover:bg-rca-red-dark hover:scale-[1.02]'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                Proceed to Payment
-              </button>
+              <div className="pb-4 sm:pb-0">
+                <button
+                  onClick={handleProceedToPayment}
+                  disabled={!isDetailsValid}
+                  className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
+                    isDetailsValid
+                      ? 'bg-rca-red text-white hover:bg-rca-red-dark hover:scale-[1.02]'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  Proceed to Payment
+                </button>
+              </div>
             </form>
           </div>
         </div>
