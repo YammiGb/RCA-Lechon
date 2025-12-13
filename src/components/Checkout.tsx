@@ -137,6 +137,10 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     parts.push(completeAddress.toLowerCase());
     parts.push('');
     
+    // Add city before landmark (for both pickup and delivery)
+    parts.push(city.toLowerCase());
+    parts.push('');
+    
     if (landmarkInfo) {
       parts.push(landmarkInfo.toLowerCase());
       parts.push('');
