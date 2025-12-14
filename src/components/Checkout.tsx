@@ -39,6 +39,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const [paymentType, setPaymentType] = useState<'down-payment' | 'full-payment'>('down-payment');
   const [downPaymentAmount, setDownPaymentAmount] = useState<number>(500);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [copyAccountSuccess, setCopyAccountSuccess] = useState(false);
 
   const SHOP_ADDRESS = 'Gabi Road, Cordova, Lapu-Lapu City';
   const CITIES = ['Lapu-Lapu City', 'Cebu City', 'Mandaue City', 'Talisay', 'Minglanilla', 'Consolacion', 'Liloan'];
@@ -180,6 +181,32 @@ ${paymentInfo}`;
         document.execCommand('copy');
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 3000);
+      } catch (fallbackErr) {
+        console.error('Failed to copy:', fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  const handleCopyAccountNumber = async () => {
+    if (!selectedPaymentMethod) return;
+    
+    try {
+      await navigator.clipboard.writeText(selectedPaymentMethod.account_number);
+      setCopyAccountSuccess(true);
+      setTimeout(() => setCopyAccountSuccess(false), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = selectedPaymentMethod.account_number;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopyAccountSuccess(true);
+        setTimeout(() => setCopyAccountSuccess(false), 2000);
       } catch (fallbackErr) {
         console.error('Failed to copy:', fallbackErr);
       }
@@ -642,7 +669,26 @@ ${paymentInfo}`;
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 mb-1">{selectedPaymentMethod.name}</p>
-                  <p className="font-mono text-cafe-dark font-medium">{selectedPaymentMethod.account_number}</p>
+                  <p className="font-mono text-cafe-dark font-medium mb-2">{selectedPaymentMethod.account_number}</p>
+                  <button
+                    onClick={handleCopyAccountNumber}
+                    className="w-full sm:w-auto mb-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center space-x-2 border-2 border-rca-green text-rca-green bg-white hover:bg-rca-green/10"
+                  >
+                    {copyAccountSuccess ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" />
+                        <span>Copy {selectedPaymentMethod.name} Number</span>
+                      </>
+                    )}
+                  </button>
+                  {copyAccountSuccess && (
+                    <p className="text-xs text-green-600 mb-2">✓ Account number copied to clipboard!</p>
+                  )}
                   <p className="text-sm text-gray-600 mb-3">Account Name: {selectedPaymentMethod.account_name}</p>
                   <p className="text-xl font-semibold text-cafe-accent">
                     Amount: ₱{paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
