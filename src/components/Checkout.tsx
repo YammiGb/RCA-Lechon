@@ -158,9 +158,21 @@ ${orderItemsText}
 ${paymentInfo}`;
 
     const encodedMessage = encodeURIComponent(orderDetails);
-    const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
     
-    window.open(messengerUrl, '_blank');
+    // Use facebook.com instead of m.me to avoid certificate issues
+    // This format works reliably across all browsers and devices
+    const messengerUrl = `https://www.facebook.com/messages/t/RCALechonBellyAndBilao?text=${encodedMessage}`;
+    
+    // Detect if device is mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // For mobile: Use window.location.href to open in same tab (better for app deep linking)
+      window.location.href = messengerUrl;
+    } else {
+      // For desktop: Open in new tab
+      window.open(messengerUrl, '_blank');
+    }
     
   };
 
