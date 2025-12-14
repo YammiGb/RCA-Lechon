@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
 import { CartItem, PaymentMethod, ServiceType } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useSiteSettings } from '../hooks/useSiteSettings';
@@ -38,6 +38,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
   const [paymentType, setPaymentType] = useState<'down-payment' | 'full-payment'>('down-payment');
   const [downPaymentAmount, setDownPaymentAmount] = useState<number>(500);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const SHOP_ADDRESS = 'Gabi Road, Cordova, Lapu-Lapu City';
   const CITIES = ['Lapu-Lapu City', 'Cebu City', 'Mandaue City', 'Talisay', 'Minglanilla', 'Consolacion', 'Liloan'];
@@ -78,7 +79,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     setStep('payment');
   };
 
-  const handlePlaceOrder = () => {
+  // Generate order details message (reusable for both link and copy)
+  const generateOrderDetails = () => {
     const completeAddress = serviceType === 'delivery' ? `${address}` : SHOP_ADDRESS;
     const landmarkInfo = serviceType === 'delivery' ? landmark : '';
 
@@ -139,7 +141,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
       paymentInfo = `${totalPrice} ${paymentMethodName}`;
     }
 
-    // Build message using template literals (like the working version)
+    // Build message using template literals
     const orderDetails = `${dateTimeDisplay}
 
 ${completeAddress.toLowerCase()}
@@ -157,11 +159,40 @@ ${orderItemsText}
 
 ${paymentInfo}`;
 
+    return orderDetails;
+  };
+
+  const handleCopyMessage = async () => {
+    const orderDetails = generateOrderDetails();
+    try {
+      await navigator.clipboard.writeText(orderDetails);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 3000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = orderDetails;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 3000);
+      } catch (fallbackErr) {
+        console.error('Failed to copy:', fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  const handlePlaceOrder = () => {
+    const orderDetails = generateOrderDetails();
     const encodedMessage = encodeURIComponent(orderDetails);
     const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
     
     window.open(messengerUrl, '_blank');
-    
   };
 
   const isDeliveryMinimumMet = serviceType !== 'delivery' || totalPrice >= MINIMUM_DELIVERY_AMOUNT;
@@ -749,6 +780,49 @@ ${paymentInfo}`;
             </div>
           </div>
 
+          {/* Warning note about certificate errors */}
+          <div className="mb-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3">
+            <p className="text-sm text-yellow-800">
+              <span className="font-semibold">⚠️ Note:</span> If you see a security warning when tapping "Place Order via Messenger" below, use the "Copy Message" button instead, then go to our Facebook page and paste the message.
+            </p>
+          </div>
+
+          {/* Copy Message Button */}
+          <button
+            onClick={handleCopyMessage}
+            className="w-full mb-3 py-3 rounded-xl font-medium text-base transition-all duration-200 flex items-center justify-center space-x-2 border-2 border-rca-green text-rca-green bg-white hover:bg-rca-green/10"
+          >
+            {copySuccess ? (
+              <>
+                <Check className="h-5 w-5" />
+                <span>Message Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-5 w-5" />
+                <span>Copy Message</span>
+              </>
+            )}
+          </button>
+
+          {copySuccess && (
+            <div className="mb-3 bg-green-50 border border-green-300 rounded-lg p-3">
+              <p className="text-sm text-green-800 text-center">
+                ✅ Message copied! Click "Go to Facebook Page" below, then message us and paste the order details.
+              </p>
+            </div>
+          )}
+
+          {/* Go to Facebook Page Button */}
+          <button
+            onClick={() => window.open('https://www.facebook.com/RCALechonBellyAndBilao', '_blank')}
+            className="w-full mb-3 py-3 rounded-xl font-medium text-base transition-all duration-200 flex items-center justify-center space-x-2 border-2 border-blue-600 text-blue-600 bg-white hover:bg-blue-50"
+          >
+            <ExternalLink className="h-5 w-5" />
+            <span>Go to Facebook Page</span>
+          </button>
+
+          {/* Place Order Button */}
           <button
             onClick={handlePlaceOrder}
             className="w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform bg-cafe-accent text-white hover:bg-cafe-espresso hover:scale-[1.02]"
