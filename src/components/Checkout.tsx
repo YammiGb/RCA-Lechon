@@ -158,32 +158,9 @@ ${orderItemsText}
 ${paymentInfo}`;
 
     const encodedMessage = encodeURIComponent(orderDetails);
-    
-    // Use m.me format - this is the official Facebook way to pre-fill Messenger messages
     const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
     
-    // Detect if device is mobile
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      // For mobile: Use window.location.href to ensure proper app deep linking
-      // This should open Messenger app directly with the pre-filled message
-      window.location.href = messengerUrl;
-    } else {
-      // For desktop: Open in new tab using programmatic link click
-      const link = document.createElement('a');
-      link.href = messengerUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      setTimeout(() => {
-        if (document.body.contains(link)) {
-          document.body.removeChild(link);
-        }
-      }, 100);
-    }
+    window.open(messengerUrl, '_blank');
     
   };
 
