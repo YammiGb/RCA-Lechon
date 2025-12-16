@@ -19,9 +19,10 @@ interface MenuProps {
   cartItems: CartItem[];
   updateQuantity: (id: string, quantity: number) => void;
   selectedCategory: string;
+  onNavigateToCart?: () => void;
 }
 
-const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuantity, selectedCategory }) => {
+const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuantity, selectedCategory, onNavigateToCart }) => {
   const { categories } = useCategories();
   const [activeCategory, setActiveCategory] = React.useState('hot-coffee');
 
@@ -144,6 +145,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
                         }
                       }
                     }}
+                    onNavigateToCart={onNavigateToCart}
                   />
                 );
               })}

@@ -123,12 +123,20 @@ const Cart: React.FC<CartProps> = ({
           <span className="text-cafe-accent">₱{getTotalPrice().toFixed(2)}</span>
         </div>
         
-        <button
-          onClick={onCheckout}
-          className="w-full bg-cafe-accent text-white py-4 rounded-xl hover:bg-cafe-espresso transition-all duration-200 transform hover:scale-[1.02] font-medium text-lg"
-        >
-          Proceed to Checkout
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={onContinueShopping}
+            className="flex-1 bg-rca-green text-white py-4 rounded-xl hover:bg-rca-green-dark transition-all duration-200 transform hover:scale-[1.02] font-medium text-lg"
+          >
+            Add More
+          </button>
+          <button
+            onClick={onCheckout}
+            className="flex-1 bg-cafe-accent text-white py-4 rounded-xl hover:bg-cafe-espresso transition-all duration-200 transform hover:scale-[1.02] font-medium text-lg"
+          >
+            Proceed to Checkout
+          </button>
+        </div>
       </div>
     </div>
   );

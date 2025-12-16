@@ -30,7 +30,7 @@ function MainApp() {
     : menuItems.filter(item => item.category === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-cafe-light font-inter overflow-y-auto">
+    <div className="min-h-screen bg-cafe-light font-inter">
       <Header 
         cartItemsCount={cart.getTotalItems()}
         onCartClick={() => handleViewChange('cart')}
@@ -45,6 +45,7 @@ function MainApp() {
           cartItems={cart.cartItems}
           updateQuantity={cart.updateQuantity}
           selectedCategory={selectedCategory}
+          onNavigateToCart={() => handleViewChange('cart')}
         />
       )}
       

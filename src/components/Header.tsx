@@ -9,7 +9,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClick }) => {
   return (
-    <header className="sticky top-0 z-50 bg-gradient-to-r from-rca-green to-rca-green/95 backdrop-blur-md border-b-4 border-rca-red shadow-lg">
+    <header className="sticky top-0 z-50 bg-gradient-to-r from-rca-green to-rca-green backdrop-blur-sm border-b-4 border-rca-red shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <button 

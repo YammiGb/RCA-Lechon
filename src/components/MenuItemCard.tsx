@@ -7,13 +7,15 @@ interface MenuItemCardProps {
   onAddToCart: (item: MenuItem, quantity?: number, variation?: Variation, addOns?: AddOn[]) => void;
   quantity: number;
   onUpdateQuantity: (id: string, quantity: number) => void;
+  onNavigateToCart?: () => void;
 }
 
 const MenuItemCard: React.FC<MenuItemCardProps> = ({ 
   item, 
   onAddToCart, 
   quantity, 
-  onUpdateQuantity 
+  onUpdateQuantity,
+  onNavigateToCart
 }) => {
   const [showCustomization, setShowCustomization] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -39,6 +41,12 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
       setShowCustomization(true);
     } else {
       onAddToCart(item, 1);
+      // Navigate to cart after adding item
+      if (onNavigateToCart) {
+        setTimeout(() => {
+          onNavigateToCart();
+        }, 100);
+      }
     }
   };
 
@@ -50,6 +58,12 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
     onAddToCart(item, 1, selectedVariation, addOnsForCart);
     setShowCustomization(false);
     setSelectedAddOns([]);
+    // Navigate to cart after adding customized item
+    if (onNavigateToCart) {
+      setTimeout(() => {
+        onNavigateToCart();
+      }, 100);
+    }
   };
 
   const handleIncrement = () => {
@@ -213,7 +227,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                   onClick={handleAddToCart}
                   className="w-full sm:w-auto bg-rca-red text-white px-2 py-1.5 sm:px-4 md:px-6 sm:py-2 md:py-2.5 rounded-lg sm:rounded-xl hover:bg-rca-red-dark transition-all duration-200 transform hover:scale-105 font-medium text-[10px] sm:text-xs md:text-sm shadow-lg hover:shadow-xl"
                 >
-                  {item.variations?.length || item.addOns?.length ? 'Customize' : 'Add'}
+                  {item.variations?.length || item.addOns?.length ? 'Customize' : 'Buy'}
                 </button>
               ) : (
                 <div className="flex items-center justify-center sm:justify-start space-x-1 sm:space-x-2 bg-rca-off-white rounded-lg sm:rounded-xl p-0.5 sm:p-1 border border-rca-green/20">
@@ -387,7 +401,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                 className="w-full bg-cafe-accent text-white py-4 rounded-xl hover:bg-cafe-espresso transition-all duration-200 font-semibold flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 <ShoppingCart className="h-5 w-5" />
-                <span>Add to Cart - ₱{calculatePrice().toFixed(2)}</span>
+                <span>Buy - ₱{calculatePrice().toFixed(2)}</span>
               </button>
             </div>
           </div>
@@ -555,7 +569,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                     }}
                     className="w-full bg-rca-red text-white py-3 rounded-xl hover:bg-rca-red-dark transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl"
                   >
-                    {item.variations?.length || item.addOns?.length ? 'Customize & Add to Cart' : 'Add to Cart'}
+                    {item.variations?.length || item.addOns?.length ? 'Customize & Buy' : 'Buy'}
                   </button>
                 )}
               </div>
