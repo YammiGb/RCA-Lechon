@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowLeft, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
 import { CartItem, PaymentMethod, ServiceType } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useSiteSettings } from '../hooks/useSiteSettings';
+import { useOrders } from '../hooks/useOrders';
 
 interface CheckoutProps {
   cartItems: CartItem[];
@@ -15,7 +16,10 @@ const MINIMUM_DELIVERY_AMOUNT = 150;
 const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) => {
   const { paymentMethods } = usePaymentMethods();
   const { siteSettings } = useSiteSettings();
+  const { createOrder } = useOrders();
   const [step, setStep] = useState<'details' | 'payment'>('details');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderSaved, setOrderSaved] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [contactNumber2, setContactNumber2] = useState('');
@@ -36,8 +40,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   });
   const [deliveryTime, setDeliveryTime] = useState('12:00');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
-  const [paymentType, setPaymentType] = useState<'down-payment' | 'full-payment'>('down-payment');
-  const [downPaymentAmount, setDownPaymentAmount] = useState<number>(500);
+  const [referenceNumber, setReferenceNumber] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
   const [copyAccountSuccess, setCopyAccountSuccess] = useState(false);
 
@@ -134,13 +137,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
 
     // Format payment info
     const paymentMethodName = selectedPaymentMethod?.name || paymentMethod || 'GCash';
-    let paymentInfo = '';
-    if (paymentType === 'down-payment') {
-      const remainingBalance = totalPrice - downPaymentAmount;
-      paymentInfo = `${totalPrice}-${downPaymentAmount} DP\n\n${remainingBalance} Bal. ${paymentMethodName}`;
-    } else {
-      paymentInfo = `${totalPrice} ${paymentMethodName}`;
-    }
+    const paymentInfo = `${totalPrice} ${paymentMethodName}`;
 
     // Build message using template literals
     const orderDetails = `${dateTimeDisplay}
@@ -164,6 +161,7 @@ ${paymentInfo}`;
   };
 
   const handleCopyMessage = async () => {
+    // Always allow copying the message
     const orderDetails = generateOrderDetails();
     try {
       await navigator.clipboard.writeText(orderDetails);
@@ -185,6 +183,25 @@ ${paymentInfo}`;
         console.error('Failed to copy:', fallbackErr);
       }
       document.body.removeChild(textArea);
+    }
+
+    // Only save if not already saved and not a duplicate
+    if (!orderSaved && !isDuplicateOrder()) {
+      try {
+        setIsSubmitting(true);
+        await saveOrderToDatabase();
+      } catch (error: any) {
+        console.error('Error saving order:', error);
+        const errorMessage = error.message?.includes('already been saved') 
+          ? error.message 
+          : 'Failed to save order. Please try again or contact support.';
+        alert(errorMessage);
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else if (isDuplicateOrder() && !orderSaved) {
+      // Show message if it's a duplicate but order wasn't saved in this session
+      alert('This order was already saved recently. The message has been copied, but the order will not be saved again to prevent duplicates.');
     }
   };
 
@@ -214,12 +231,159 @@ ${paymentInfo}`;
     }
   };
 
-  const handlePlaceOrder = () => {
-    const orderDetails = generateOrderDetails();
-    const encodedMessage = encodeURIComponent(orderDetails);
-    const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
+  // Generate a unique fingerprint for the current order to prevent duplicates
+  const generateOrderFingerprint = (): string => {
+    const orderData = {
+      items: cartItems.map(item => ({
+        id: item.id.split(':::CART:::')[0], // Get original menu item ID
+        quantity: item.quantity,
+        variation: item.selectedVariation?.id,
+        addOns: item.selectedAddOns?.map(a => a.id).sort(),
+      })),
+      customer: customerName,
+      contact: contactNumber,
+      total: totalPrice,
+      serviceType,
+      timestamp: Date.now(),
+    };
+    // Create a simple hash from the order data
+    const dataString = JSON.stringify(orderData);
+    let hash = 0;
+    for (let i = 0; i < dataString.length; i++) {
+      const char = dataString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return `order_${Math.abs(hash)}_${Date.now()}`;
+  };
+
+  // Check if this order was already saved recently (within last 5 minutes)
+  const isDuplicateOrder = (): boolean => {
+    if (orderSaved) return true; // Already saved in this session
     
-    window.open(messengerUrl, '_blank');
+    const savedOrders = JSON.parse(sessionStorage.getItem('savedOrders') || '[]');
+    
+    // Check if a similar order was saved recently (same items, customer, within 5 minutes)
+    const recentOrder = savedOrders.find((saved: { fingerprint: string; timestamp: number }) => {
+      const timeDiff = Date.now() - saved.timestamp;
+      return timeDiff < 5 * 60 * 1000; // 5 minutes
+    });
+    
+    if (recentOrder) {
+      // Compare order data (excluding timestamp)
+      const currentData = JSON.parse(JSON.stringify({
+        items: cartItems.map(item => ({
+          id: item.id.split(':::CART:::')[0],
+          quantity: item.quantity,
+          variation: item.selectedVariation?.id,
+          addOns: item.selectedAddOns?.map(a => a.id).sort(),
+        })),
+        customer: customerName,
+        contact: contactNumber,
+        total: totalPrice,
+        serviceType,
+      }));
+      
+      const savedData = recentOrder.orderData;
+      
+      return JSON.stringify(currentData) === JSON.stringify(savedData);
+    }
+    
+    return false;
+  };
+
+  const saveOrderToDatabase = async () => {
+    // Check for duplicate orders
+    if (isDuplicateOrder()) {
+      throw new Error('This order has already been saved. Please do not submit duplicate orders.');
+    }
+
+    // Get IP address (optional, for rate limiting)
+    let ipAddress = '';
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      ipAddress = data.ip;
+    } catch (err) {
+      console.warn('Could not fetch IP address:', err);
+    }
+
+    // Save order to database
+    await createOrder({
+      customerName,
+      contactNumber,
+      contactNumber2: contactNumber2 || undefined,
+      serviceType,
+      address: serviceType === 'delivery' ? address : undefined,
+      landmark: serviceType === 'delivery' ? landmark : undefined,
+      city: city || undefined, // Save city for both pickup and delivery
+      pickupDate: serviceType === 'pickup' ? pickupDate : undefined,
+      pickupTime: serviceType === 'pickup' ? pickupTime : undefined,
+      deliveryDate: serviceType === 'delivery' ? deliveryDate : undefined,
+      deliveryTime: serviceType === 'delivery' ? deliveryTime : undefined,
+      paymentMethod: paymentMethod,
+      referenceNumber: referenceNumber.trim() || undefined,
+      notes: undefined, // Add notes field if needed
+      total: totalPrice,
+      items: cartItems,
+      ipAddress,
+    });
+
+    // Mark order as saved and store in sessionStorage
+    setOrderSaved(true);
+    const fingerprint = generateOrderFingerprint();
+    const orderData = {
+      items: cartItems.map(item => ({
+        id: item.id.split(':::CART:::')[0],
+        quantity: item.quantity,
+        variation: item.selectedVariation?.id,
+        addOns: item.selectedAddOns?.map(a => a.id).sort(),
+      })),
+      customer: customerName,
+      contact: contactNumber,
+      total: totalPrice,
+      serviceType,
+    };
+    
+    const savedOrders = JSON.parse(sessionStorage.getItem('savedOrders') || '[]');
+    savedOrders.push({
+      fingerprint,
+      orderData,
+      timestamp: Date.now(),
+    });
+    
+    // Keep only last 10 orders in sessionStorage
+    const recentOrders = savedOrders.slice(-10);
+    sessionStorage.setItem('savedOrders', JSON.stringify(recentOrders));
+  };
+
+  const handlePlaceOrder = async () => {
+    if (orderSaved) {
+      alert('This order has already been saved. Please do not submit duplicate orders.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      // Save order to database
+      await saveOrderToDatabase();
+
+      // Open messenger with order details
+      const orderDetails = generateOrderDetails();
+      const encodedMessage = encodeURIComponent(orderDetails);
+      const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
+      
+      window.open(messengerUrl, '_blank');
+    } catch (error: any) {
+      console.error('Error placing order:', error);
+      const errorMessage = error.message?.includes('already been saved') 
+        ? error.message 
+        : 'Failed to save order. Please try again or contact support.';
+      alert(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isDeliveryMinimumMet = serviceType !== 'delivery' || totalPrice >= MINIMUM_DELIVERY_AMOUNT;
@@ -549,99 +713,6 @@ ${paymentInfo}`;
         <div className="bg-rca-off-white rounded-xl shadow-sm p-6 border border-rca-green/20">
           <h2 className="text-2xl font-playfair font-medium text-rca-green mb-6">Payment Options</h2>
           
-          {/* Payment Type Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-rca-green mb-3">Payment Type *</label>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setPaymentType('down-payment');
-                  if (downPaymentAmount < 500) {
-                    setDownPaymentAmount(500);
-                  } else if (downPaymentAmount > totalPrice) {
-                    setDownPaymentAmount(totalPrice);
-                  }
-                }}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                  paymentType === 'down-payment'
-                    ? 'border-rca-red bg-rca-red text-white'
-                    : 'border-rca-green/20 bg-rca-off-white text-gray-700 hover:border-rca-red'
-                }`}
-              >
-                <div className="text-lg font-medium">Down Payment</div>
-                <div className="text-xs mt-1 opacity-90">Minimum ₱500</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentType('full-payment')}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                  paymentType === 'full-payment'
-                    ? 'border-rca-red bg-rca-red text-white'
-                    : 'border-rca-green/20 bg-rca-off-white text-gray-700 hover:border-rca-red'
-                }`}
-              >
-                <div className="text-lg font-medium">Full Payment</div>
-                <div className="text-xs mt-1 opacity-90">₱{totalPrice}</div>
-              </button>
-            </div>
-
-            {/* Down Payment Amount Input */}
-            {paymentType === 'down-payment' && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-rca-green mb-2">
-                  Down Payment Amount * (Minimum ₱500)
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={downPaymentAmount}
-                  onChange={(e) => {
-                    // Allow only numbers
-                    const inputValue = e.target.value.replace(/[^0-9]/g, '');
-                    
-                    // If empty, allow empty state temporarily (will validate on blur)
-                    if (inputValue === '') {
-                      setDownPaymentAmount(0);
-                      return;
-                    }
-                    
-                    const numValue = Number(inputValue);
-                    
-                    // Only cap at maximum, don't auto-set minimum while typing
-                    if (numValue > totalPrice) {
-                      setDownPaymentAmount(totalPrice);
-                    } else {
-                      setDownPaymentAmount(numValue);
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // Validate on blur: ensure minimum 500
-                    if (downPaymentAmount < 500 || downPaymentAmount === 0) {
-                      setDownPaymentAmount(500);
-                    }
-                  }}
-                  className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
-                  placeholder="Enter amount (minimum ₱500)"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Remaining balance: ₱{totalPrice - downPaymentAmount}
-                </p>
-              </div>
-            )}
-
-            {/* Full Payment Display */}
-            {paymentType === 'full-payment' && (
-              <div className="mb-4 p-4 bg-rca-green/5 rounded-lg border border-rca-green/20">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-rca-green">Full Payment Amount:</span>
-                  <span className="text-xl font-bold text-rca-red">₱{totalPrice}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
           <h3 className="text-xl font-playfair font-medium text-rca-green mb-4">Choose Payment Method</h3>
           
           <div className="grid grid-cols-1 gap-4 mb-6">
@@ -691,13 +762,8 @@ ${paymentInfo}`;
                   )}
                   <p className="text-sm text-gray-600 mb-3">Account Name: {selectedPaymentMethod.account_name}</p>
                   <p className="text-xl font-semibold text-cafe-accent">
-                    Amount: ₱{paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
+                    Amount: ₱{totalPrice}
                   </p>
-                  {paymentType === 'down-payment' && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      Remaining: ₱{totalPrice - downPaymentAmount}
-                    </p>
-                  )}
                 </div>
                 <div className="flex-shrink-0">
                   <img 
@@ -711,6 +777,25 @@ ${paymentInfo}`;
                   <p className="text-xs text-gray-500 text-center mt-2">Scan to pay</p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Payment Reference Number Input */}
+          {selectedPaymentMethod && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-rca-green mb-2">
+                Payment Reference Number <span className="text-gray-500">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                value={referenceNumber}
+                onChange={(e) => setReferenceNumber(e.target.value)}
+                placeholder="Enter transaction/reference number (e.g., GCash transaction ID)"
+                className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                If you've already made the payment, enter the reference/transaction number here
+              </p>
             </div>
           )}
 
@@ -800,25 +885,11 @@ ${paymentInfo}`;
           <div className="border-t border-cafe-latte pt-4 mb-4">
             <div className="space-y-2 mb-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-600">Payment Type:</span>
-                <span className="text-sm font-semibold text-cafe-dark">
-                  {paymentType === 'down-payment' ? 'Down Payment' : 'Full Payment'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-600">Payment Amount:</span>
                 <span className="text-lg font-semibold text-cafe-accent">
-                  ₱{paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
+                  ₱{totalPrice}
                 </span>
               </div>
-              {paymentType === 'down-payment' && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-600">Remaining Balance:</span>
-                  <span className="text-sm font-semibold text-gray-700">
-                    ₱{totalPrice - downPaymentAmount}
-                  </span>
-                </div>
-              )}
             </div>
             <div className="flex items-center justify-between text-2xl font-playfair font-semibold text-cafe-dark border-t border-cafe-latte pt-4">
               <span>Total Amount:</span>
@@ -836,9 +907,15 @@ ${paymentInfo}`;
           {/* Copy Message Button */}
           <button
             onClick={handleCopyMessage}
-            className="w-full mb-3 py-3 rounded-xl font-medium text-base transition-all duration-200 flex items-center justify-center space-x-2 border-2 border-rca-green text-rca-green bg-white hover:bg-rca-green/10"
+            disabled={isSubmitting}
+            className="w-full mb-3 py-3 rounded-xl font-medium text-base transition-all duration-200 flex items-center justify-center space-x-2 border-2 border-rca-green text-rca-green bg-white hover:bg-rca-green/10 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {copySuccess ? (
+            {isSubmitting ? (
+              <>
+                <RefreshCw className="h-5 w-5 animate-spin" />
+                <span>Saving Order...</span>
+              </>
+            ) : copySuccess ? (
               <>
                 <Check className="h-5 w-5" />
                 <span>Message Copied!</span>
@@ -846,7 +923,7 @@ ${paymentInfo}`;
             ) : (
               <>
                 <Copy className="h-5 w-5" />
-                <span>Copy Message</span>
+                <span>Copy Message{orderSaved ? ' (Already Saved)' : ''}</span>
               </>
             )}
           </button>
@@ -871,9 +948,10 @@ ${paymentInfo}`;
           {/* Place Order Button */}
           <button
             onClick={handlePlaceOrder}
-            className="w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform bg-cafe-accent text-white hover:bg-cafe-espresso hover:scale-[1.02]"
+            disabled={isSubmitting || orderSaved}
+            className="w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform bg-cafe-accent text-white hover:bg-cafe-espresso hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Place Order via Messenger
+            {orderSaved ? 'Order Already Saved' : isSubmitting ? 'Saving Order...' : 'Place Order via Messenger'}
           </button>
           
           <p className="text-xs text-gray-500 text-center mt-3">

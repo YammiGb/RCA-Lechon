@@ -76,3 +76,46 @@ export interface SiteSettings {
   currency_code: string;
   delivery_enabled: string; // 'true' or 'false' as string (stored in DB)
 }
+
+// Order Types
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  menu_item_id: string;
+  name: string;
+  variation?: Variation | null;
+  add_ons?: AddOn[] | null;
+  unit_price: number;
+  quantity: number;
+  subtotal: number;
+  created_at: string;
+}
+
+export interface Order {
+  id: string;
+  customer_name: string;
+  contact_number: string;
+  contact_number2?: string | null;
+  service_type: 'dine-in' | 'pickup' | 'delivery';
+  address?: string | null;
+  landmark?: string | null;
+  city?: string | null;
+  pickup_date?: string | null;
+  pickup_time?: string | null;
+  delivery_date?: string | null;
+  delivery_time?: string | null;
+  dine_in_time?: string | null;
+  payment_method: string;
+  reference_number?: string | null;
+  notes?: string | null;
+  total: number;
+  status: 'pending' | 'approved' | 'rejected' | 'synced';
+  verified_by?: string | null;
+  verified_at?: string | null;
+  synced_to_sheets: boolean;
+  synced_at?: string | null;
+  ip_address?: string | null;
+  created_at: string;
+  updated_at: string;
+  order_items?: OrderItem[];
+}
