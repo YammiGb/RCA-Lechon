@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Check, X, RefreshCw, ExternalLink, Calendar, Phone, MapPin, CreditCard, Package, AlertCircle } from 'lucide-react';
+import { Check, X, RefreshCw, ExternalLink, Calendar, Phone, MapPin, CreditCard, Package, AlertCircle, Copy, Filter, ChevronDown, Search, Edit2, Save } from 'lucide-react';
 import { Order } from '../types';
 import { useOrders } from '../hooks/useOrders';
 
@@ -85,6 +85,60 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   );
 };
 
+interface NoteModalProps {
+  isOpen: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+  noteValue: string;
+  onNoteChange: (value: string) => void;
+  isSaving: boolean;
+}
+
+const NoteModal: React.FC<NoteModalProps> = ({
+  isOpen,
+  onSave,
+  onCancel,
+  noteValue,
+  onNoteChange,
+  isSaving,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+        <div className="p-6 border-t-4 border-blue-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Note</h3>
+          <textarea
+            value={noteValue}
+            onChange={(e) => onNoteChange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rca-green focus:border-rca-green text-sm mb-4"
+            rows={5}
+            placeholder="Enter a note for this order..."
+            autoFocus
+          />
+        </div>
+        <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex items-center justify-end space-x-3">
+          <button
+            onClick={onCancel}
+            disabled={isSaving}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSave}
+            disabled={isSaving}
+            className="px-4 py-2 text-sm font-medium text-white bg-rca-green rounded-lg hover:bg-rca-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface ToastProps {
   message: string;
   type: 'success' | 'error' | 'warning' | 'info';
@@ -126,30 +180,114 @@ const Toast: React.FC<ToastProps> = ({ message, type, isVisible, onClose }) => {
 };
 
 const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => {
-  const { orders, loading, fetchOrders, updateOrderStatus, syncOrderToSheets } = useOrders();
+  const { orders, loading, fetchOrders, updateOrderStatus, updateOrderNotes, markOrderAsFullyPaid, syncOrderToSheets } = useOrders();
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [refreshKey, setRefreshKey] = useState(0); // Force re-render
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [orderToReject, setOrderToReject] = useState<Order | null>(null);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [noteOrderId, setNoteOrderId] = useState<string | null>(null);
+  const [noteValue, setNoteValue] = useState<string>('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info'; isVisible: boolean }>({
     message: '',
     type: 'info',
     isVisible: false
   });
 
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedCity, setSelectedCity] = useState<string>('all');
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all'); // 'all', 'pending', 'down-payment', 'fully-paid'
+  const [showFilterPanel, setShowFilterPanel] = useState<boolean>(false);
+
+  // Extract unique cities from orders with counts
+  const availableCities = useMemo(() => {
+    const cityCounts = orders.reduce((acc, order) => {
+      if (order.city) {
+        acc[order.city] = (acc[order.city] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const cities = Object.keys(cityCounts)
+      .sort()
+      .map(city => ({
+        name: city,
+        count: cityCounts[city]
+      }));
+
+    return cities;
+  }, [orders]);
+
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    const pendingCount = orders.filter(order => order.status === 'pending').length;
+    const downPaymentCount = orders.filter(order => order.payment_type === 'down-payment').length;
+    // Fully paid includes orders with payment_type === 'full-payment'
+    const fullyPaidCount = orders.filter(order => order.payment_type === 'full-payment').length;
+    return {
+      pending: pendingCount,
+      downPayment: downPaymentCount,
+      fullyPaid: fullyPaidCount,
+    };
+  }, [orders]);
+
+  // Apply filters to orders
+  const filteredOrders = useMemo(() => {
+    let filtered = [...orders];
+
+    // Filter by search term (order number)
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(order => {
+        const orderNumber = order.id.substring(0, 8).toLowerCase();
+        return orderNumber.includes(searchLower);
+      });
+    }
+
+    // Filter by city
+    if (selectedCity !== 'all') {
+      filtered = filtered.filter(order => order.city === selectedCity);
+    }
+
+    // Filter by date
+    if (selectedDate) {
+      const filterDate = new Date(selectedDate);
+      filterDate.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(order => {
+        const orderDate = new Date(order.created_at);
+        orderDate.setHours(0, 0, 0, 0);
+        return orderDate.getTime() === filterDate.getTime();
+      });
+    }
+
+    // Filter by status
+    if (statusFilter === 'pending') {
+      filtered = filtered.filter(order => order.status === 'pending');
+    } else if (statusFilter === 'down-payment') {
+      filtered = filtered.filter(order => order.payment_type === 'down-payment');
+    } else if (statusFilter === 'fully-paid') {
+      filtered = filtered.filter(order => order.payment_type === 'full-payment');
+    }
+    // 'all' means no filtering
+
+    return filtered;
+  }, [orders, searchTerm, selectedCity, selectedDate, statusFilter]);
+
   // Use useMemo to ensure filtering happens with latest data
   const pendingOrders = useMemo(() => 
-    orders.filter(order => order.status === 'pending'), 
-    [orders, refreshKey]
+    filteredOrders.filter(order => order.status === 'pending'), 
+    [filteredOrders, refreshKey]
   );
   const approvedOrders = useMemo(() => 
-    orders.filter(order => order.status === 'approved'), 
-    [orders, refreshKey]
+    filteredOrders.filter(order => order.status === 'approved'), 
+    [filteredOrders, refreshKey]
   );
   const syncedOrders = useMemo(() => 
-    orders.filter(order => order.status === 'synced'), 
-    [orders, refreshKey]
+    filteredOrders.filter(order => order.status === 'synced'), 
+    [filteredOrders, refreshKey]
   );
 
   const handleApprove = async (order: Order) => {
@@ -228,6 +366,21 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     }, 5000);
   };
 
+  const handleMarkAsFullyPaid = async (order: Order) => {
+    try {
+      setProcessingOrderId(order.id);
+      await markOrderAsFullyPaid(order.id);
+      showToast('Order marked as fully paid!', 'success');
+      setRefreshKey(prev => prev + 1);
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error marking order as fully paid:', error);
+      showToast('Failed to mark order as fully paid. Please try again.', 'error');
+    } finally {
+      setProcessingOrderId(null);
+    }
+  };
+
   const handleSyncToSheets = async (order: Order) => {
     if (!webhookUrl) {
       showToast('Google Sheets webhook URL is not configured. Please set it up first.', 'warning');
@@ -247,6 +400,38 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     }
   };
 
+  const handleOpenNoteModal = (order: Order) => {
+    setNoteOrderId(order.id);
+    setNoteValue(order.notes || '');
+    setShowNoteModal(true);
+  };
+
+  const handleSaveNote = async () => {
+    if (!noteOrderId) return;
+    
+    try {
+      setProcessingOrderId(noteOrderId);
+      await updateOrderNotes(noteOrderId, noteValue);
+      setShowNoteModal(false);
+      setNoteOrderId(null);
+      setNoteValue('');
+      showToast('Note saved successfully!', 'success');
+      setRefreshKey(prev => prev + 1);
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error saving note:', error);
+      showToast('Failed to save note. Please try again.', 'error');
+    } finally {
+      setProcessingOrderId(null);
+    }
+  };
+
+  const handleCloseNoteModal = () => {
+    setShowNoteModal(false);
+    setNoteOrderId(null);
+    setNoteValue('');
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
       timeZone: 'Asia/Manila',
@@ -262,6 +447,141 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     return `₱${price.toFixed(2)}`;
   };
 
+  const formatOrderDetails = (order: Order): string => {
+    const parts: string[] = [];
+    
+    // Add order number at the beginning
+    const orderNumber = order.id.substring(0, 8);
+    parts.push(`Order #${orderNumber}`);
+    parts.push(''); // Empty line after order number
+    
+    // Format number with commas
+    const formatPrice = (price: number) => {
+      return price.toLocaleString('en-US');
+    };
+
+    // Format contact number with dashes (e.g., 0935-257-5468)
+    const formatContactNumber = (number: string) => {
+      const cleaned = number.replace(/[-\s]/g, '');
+      if (cleaned.length === 11) {
+        return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 7)}-${cleaned.substring(7)}`;
+      }
+      return number;
+    };
+
+    // Format date and time
+    let dateTimeStr = '';
+    if (order.service_type === 'pickup' && order.pickup_date && order.pickup_time) {
+      const pickupDate = new Date(order.pickup_date);
+      const timeStr = order.pickup_time;
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHour = hours % 12 || 12;
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      dateTimeStr = `${monthNames[pickupDate.getMonth()]} ${pickupDate.getDate()}, ${pickupDate.getFullYear()}         ${displayHour}:${minutes.toString().padStart(2, '0')}${ampm}`;
+    } else if (order.service_type === 'delivery' && order.delivery_date && order.delivery_time) {
+      const deliveryDate = new Date(order.delivery_date);
+      const timeStr = order.delivery_time;
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHour = hours % 12 || 12;
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      dateTimeStr = `${monthNames[deliveryDate.getMonth()]} ${deliveryDate.getDate()}, ${deliveryDate.getFullYear()}         ${displayHour}:${minutes.toString().padStart(2, '0')}${ampm}`;
+    }
+    if (dateTimeStr) parts.push(dateTimeStr);
+    
+    // Address (keep original case)
+    if (order.address) {
+      parts.push(order.address);
+    }
+    
+    // Landmark (keep original case, before city)
+    if (order.landmark) {
+      parts.push(order.landmark);
+    }
+    
+    // City (keep original case)
+    if (order.city) {
+      parts.push(order.city);
+    }
+    
+    // Empty line
+    parts.push('');
+    
+    // Customer name
+    parts.push(order.customer_name);
+    
+    // Contact numbers (formatted with dashes, one per line)
+    parts.push(formatContactNumber(order.contact_number));
+    if (order.contact_number2) {
+      parts.push(formatContactNumber(order.contact_number2));
+    }
+    
+    // Empty line
+    parts.push('');
+    
+    // Items: price with commas first, then name
+    if (order.order_items && order.order_items.length > 0) {
+      order.order_items.forEach(item => {
+        const itemPrice = Math.round(item.subtotal);
+        parts.push(`${formatPrice(itemPrice)} ${item.name}`);
+      });
+    }
+    
+    // Payment info: total price and payment method
+    const totalPrice = Math.round(order.total);
+    
+    // Determine payment method display
+    let paymentMethodDisplay = order.payment_method.toUpperCase();
+    if (order.service_type === 'delivery') {
+      if (order.payment_method === 'cod') {
+        paymentMethodDisplay = 'COD';
+      } else if (order.payment_method === 'gcash' || order.payment_method === 'gcash-on-delivery') {
+        paymentMethodDisplay = 'GCash on Delivery';
+      }
+    }
+    
+    // Format payment info based on payment type
+    if (order.payment_type === 'down-payment' && order.down_payment_amount) {
+      const downPayment = Math.round(order.down_payment_amount);
+      const remainingBalance = totalPrice - downPayment;
+      parts.push(`${formatPrice(totalPrice)}-${formatPrice(downPayment)} DP`);
+      parts.push(`${formatPrice(remainingBalance)} Bal. ${paymentMethodDisplay}`);
+    } else {
+      parts.push(`${formatPrice(totalPrice)} ${paymentMethodDisplay}`);
+    }
+    
+    // Add note if exists
+    if (order.notes) {
+      parts.push('');
+      parts.push(`Note: ${order.notes}`);
+    }
+    
+    return parts.join('\n');
+  };
+
+  const handleCopyOrderNumber = async (orderId: string) => {
+    const orderNumber = orderId.substring(0, 8);
+    try {
+      await navigator.clipboard.writeText(orderNumber);
+      showToast('Order number copied!', 'success');
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      showToast('Failed to copy order number', 'error');
+    }
+  };
+
+  const handleCopyOrderDetails = async (order: Order) => {
+    const orderDetails = formatOrderDetails(order);
+    try {
+      await navigator.clipboard.writeText(orderDetails);
+      showToast('Order details copied!', 'success');
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      showToast('Failed to copy order details', 'error');
+    }
+  };
+
   const OrderCard = ({ order }: { order: Order }) => {
     const isProcessing = processingOrderId === order.id;
     const canSync = order.status === 'approved' && !order.synced_to_sheets && webhookUrl;
@@ -269,15 +589,40 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
         <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Order #{order.id.substring(0, 8)}
-            </h3>
+          <div className="flex-1">
+            <div className="flex items-center space-x-2">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Order #{order.id.substring(0, 8)}
+              </h3>
+              <button
+                onClick={() => handleCopyOrderNumber(order.id)}
+                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Copy order number"
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+            </div>
             <p className="text-sm text-gray-500 mt-1">
               {formatDate(order.created_at)}
             </p>
           </div>
           <div className="flex items-center space-x-2">
+            <button
+              onClick={() => handleCopyOrderDetails(order)}
+              className="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-1"
+              title="Copy order details"
+            >
+              <Copy className="h-3 w-3" />
+              <span>Copy Details</span>
+            </button>
+            <button
+              onClick={() => handleOpenNoteModal(order)}
+              className="px-3 py-1.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center space-x-1"
+              title="Add or edit note"
+            >
+              <Edit2 className="h-3 w-3" />
+              <span>Add Note</span>
+            </button>
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
               order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
               order.status === 'approved' ? 'bg-blue-100 text-blue-800' :
@@ -344,29 +689,70 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
           </div>
         </div>
 
+        {/* Note Display */}
+        {order.notes && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start space-x-2">
+              <span className="text-sm font-medium text-blue-900">Note:</span>
+              <p className="text-sm text-blue-800 whitespace-pre-wrap flex-1">{order.notes}</p>
+            </div>
+          </div>
+        )}
+
         {/* Order Items */}
         {order.order_items && order.order_items.length > 0 && (
           <div className="mb-4">
             <h4 className="font-medium text-gray-900 mb-2">Items:</h4>
             <div className="space-y-1">
-              {order.order_items.map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
-                  <div className="flex-1">
-                    <span className="font-medium">{item.name}</span>
-                    {item.variation && (
-                      <span className="text-gray-600"> - {JSON.parse(item.variation as any)?.name || 'Variation'}</span>
-                    )}
-                    {item.add_ons && item.add_ons.length > 0 && (
-                      <span className="text-gray-600">
-                        {' + '}
-                        {JSON.parse(item.add_ons as any).map((addOn: any) => addOn.name).join(', ')}
-                      </span>
-                    )}
-                    <span className="text-gray-600"> x{item.quantity}</span>
+              {order.order_items.map((item) => {
+                // Safely parse variation
+                let variationName = null;
+                if (item.variation) {
+                  try {
+                    const variation = typeof item.variation === 'string' 
+                      ? JSON.parse(item.variation) 
+                      : item.variation;
+                    variationName = variation?.name || 'Variation';
+                  } catch (e) {
+                    console.warn('Failed to parse variation:', e);
+                    variationName = 'Variation';
+                  }
+                }
+
+                // Safely parse add_ons
+                let addOnsList: any[] = [];
+                if (item.add_ons) {
+                  try {
+                    if (typeof item.add_ons === 'string') {
+                      addOnsList = JSON.parse(item.add_ons);
+                    } else if (Array.isArray(item.add_ons)) {
+                      addOnsList = item.add_ons;
+                    }
+                  } catch (e) {
+                    console.warn('Failed to parse add_ons:', e);
+                    addOnsList = [];
+                  }
+                }
+
+                return (
+                  <div key={item.id} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
+                    <div className="flex-1">
+                      <span className="font-medium">{item.name}</span>
+                      {variationName && (
+                        <span className="text-gray-600"> - {variationName}</span>
+                      )}
+                      {addOnsList.length > 0 && (
+                        <span className="text-gray-600">
+                          {' + '}
+                          {addOnsList.map((addOn: any) => addOn.name).join(', ')}
+                        </span>
+                      )}
+                      <span className="text-gray-600"> x{item.quantity}</span>
+                    </div>
+                    <span className="font-medium">{formatPrice(item.subtotal)}</span>
                   </div>
-                  <span className="font-medium">{formatPrice(item.subtotal)}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -400,6 +786,20 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
                 </button>
               </>
             )}
+            {order.payment_type === 'down-payment' && order.status !== 'pending' && (
+              <button
+                onClick={() => handleMarkAsFullyPaid(order)}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {isProcessing ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CreditCard className="h-4 w-4" />
+                )}
+                <span>Mark as Fully Paid</span>
+              </button>
+            )}
             {canSync && (
               <button
                 onClick={() => handleSyncToSheets(order)}
@@ -423,14 +823,6 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
           </div>
         </div>
 
-        {order.notes && (
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-start space-x-2">
-              <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5" />
-              <p className="text-sm text-yellow-800">{order.notes}</p>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
@@ -460,6 +852,15 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
         }}
       />
 
+      <NoteModal
+        isOpen={showNoteModal}
+        onSave={handleSaveNote}
+        onCancel={handleCloseNoteModal}
+        noteValue={noteValue}
+        onNoteChange={setNoteValue}
+        isSaving={processingOrderId !== null}
+      />
+
       {/* Toast Notification */}
       <Toast
         message={toast.message}
@@ -484,14 +885,120 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-semibold text-gray-900">Order Verification</h2>
-        <button
-          onClick={() => fetchOrders()}
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
-        >
-          <RefreshCw className="h-4 w-4" />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowFilterPanel(!showFilterPanel)}
+            className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
+              showFilterPanel 
+                ? 'bg-rca-green text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <Filter className="h-4 w-4" />
+            <span>Filters</span>
+          </button>
+          <button
+            onClick={() => fetchOrders()}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
+
+      {/* Search Bar */}
+      <div className="mb-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by order number..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rca-green focus:border-rca-green"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Filter Panel */}
+      {showFilterPanel && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Filter by City */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Location
+              </label>
+              <select
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rca-green focus:border-rca-green"
+              >
+                <option value="all">All Cities</option>
+                {availableCities.map(city => (
+                  <option key={city.name} value={city.name}>
+                    {city.name} ({city.count})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter by Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Date
+              </label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rca-green focus:border-rca-green"
+              />
+            </div>
+
+            {/* Filter by Status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rca-green focus:border-rca-green"
+              >
+                <option value="all">All</option>
+                <option value="pending">Pending Orders ({filterCounts.pending})</option>
+                <option value="down-payment">Down Payment ({filterCounts.downPayment})</option>
+                <option value="fully-paid">Fully Paid ({filterCounts.fullyPaid})</option>
+              </select>
+            </div>
+
+            {/* Clear Filters */}
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedCity('all');
+                  setSelectedDate('');
+                  setStatusFilter('all');
+                }}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pending Orders */}
       <div>

@@ -108,6 +108,8 @@ export interface Order {
   delivery_time?: string | null;
   dine_in_time?: string | null;
   payment_method: string;
+  payment_type?: 'down-payment' | 'full-payment' | null;
+  down_payment_amount?: number | null;
   reference_number?: string | null;
   notes?: string | null;
   total: number;

@@ -170,6 +170,89 @@ export const useOrders = () => {
     }
   };
 
+  const updateOrderNotes = async (orderId: string, notes: string) => {
+    try {
+      const { error, data } = await supabase
+        .from('orders')
+        .update({
+          notes: notes || null,
+        })
+        .eq('id', orderId)
+        .select(`
+          *,
+          order_items (*)
+        `);
+
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('Update succeeded but no data returned. Order may not exist or RLS policy may be blocking.');
+        await fetchOrders();
+        return;
+      }
+
+      const updatedOrder = data[0];
+
+      // Optimistically update the local state immediately
+      setOrders(prevOrders => {
+        return prevOrders.map(order => 
+          order.id === orderId ? { ...order, ...updatedOrder } : order
+        );
+      });
+
+      // Then fetch fresh data from server to ensure consistency
+      await fetchOrders();
+    } catch (err) {
+      console.error('Error updating order notes:', err);
+      throw err;
+    }
+  };
+
+  const markOrderAsFullyPaid = async (orderId: string) => {
+    try {
+      const { error, data } = await supabase
+        .from('orders')
+        .update({
+          payment_type: 'full-payment',
+          down_payment_amount: null,
+        })
+        .eq('id', orderId)
+        .select(`
+          *,
+          order_items (*)
+        `);
+
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('Update succeeded but no data returned. Order may not exist or RLS policy may be blocking.');
+        await fetchOrders();
+        return;
+      }
+
+      const updatedOrder = data[0];
+
+      // Optimistically update the local state immediately
+      setOrders(prevOrders => {
+        return prevOrders.map(order => 
+          order.id === orderId ? { ...order, ...updatedOrder } : order
+        );
+      });
+
+      // Then fetch fresh data from server to ensure consistency
+      await fetchOrders();
+    } catch (err) {
+      console.error('Error marking order as fully paid:', err);
+      throw err;
+    }
+  };
+
   const syncOrderToSheets = async (orderId: string, webhookUrl: string) => {
     try {
       // Fetch order with items
@@ -261,6 +344,8 @@ export const useOrders = () => {
     fetchOrders,
     createOrder,
     updateOrderStatus,
+    updateOrderNotes,
+    markOrderAsFullyPaid,
     syncOrderToSheets,
     refetch: fetchOrders,
   };

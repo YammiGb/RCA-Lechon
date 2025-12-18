@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, AlertCircle, Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Copy, Check } from 'lucide-react';
 import { CartItem, PaymentMethod, ServiceType } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useSiteSettings } from '../hooks/useSiteSettings';
@@ -42,7 +42,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
   const [paymentType, setPaymentType] = useState<'down-payment' | 'full-payment'>('down-payment');
   const [downPaymentAmount, setDownPaymentAmount] = useState<number>(500);
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [deliveryPaymentMethod, setDeliveryPaymentMethod] = useState<'cod' | 'gcash-on-delivery'>('cod');
   const [copyAccountSuccess, setCopyAccountSuccess] = useState(false);
 
   const SHOP_ADDRESS = 'Gabi Road, Cordova, Lapu-Lapu City';
@@ -85,24 +85,36 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   };
 
   // Generate order details message (reusable for both link and copy)
-  const generateOrderDetails = () => {
+  const generateOrderDetails = (orderNumber?: string) => {
     const completeAddress = serviceType === 'delivery' ? `${address}` : SHOP_ADDRESS;
     const landmarkInfo = serviceType === 'delivery' ? landmark : '';
+
+    // Format number with commas
+    const formatPrice = (price: number) => {
+      return price.toLocaleString('en-US');
+    };
+
+    // Format contact number with dashes (e.g., 0935-257-5468)
+    const formatContactNumber = (number: string) => {
+      // Remove any existing dashes or spaces
+      const cleaned = number.replace(/[-\s]/g, '');
+      // Format as XXX-XXX-XXXX
+      if (cleaned.length === 11) {
+        return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 7)}-${cleaned.substring(7)}`;
+      }
+      return number; // Return original if not 11 digits
+    };
 
     const formatTimeWithAMPM = (timeString: string) => {
       const [hours, minutes] = timeString.split(':').map(Number);
       const ampm = hours >= 12 ? 'PM' : 'AM';
       const displayHours = hours % 12 || 12;
-      // If minutes are 00, don't show minutes
-      if (minutes === 0) {
-        return `${displayHours}${ampm}`;
-      }
-      return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+      return `${displayHours}:${minutes.toString().padStart(2, '0')}${ampm}`;
     };
 
     const formatDate = (dateString: string) => {
       const date = new Date(dateString);
-      const months = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.', 'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'];
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
       const month = months[date.getMonth()];
       const day = date.getDate();
       const year = date.getFullYear();
@@ -111,9 +123,10 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
 
     const selectedDate = serviceType === 'pickup' ? pickupDate : deliveryDate;
     const selectedTime = serviceType === 'pickup' ? pickupTime : deliveryTime;
-    const dateTimeDisplay = `${formatDate(selectedDate)} ${formatTimeWithAMPM(selectedTime)}`;
+    // Format: "December 18, 2025         5:30PM" (with spaces between date and time)
+    const dateTimeDisplay = `${formatDate(selectedDate)}         ${formatTimeWithAMPM(selectedTime)}`;
 
-    // Format order items: price first, then item name
+    // Format order items: price with commas first, then item name
     const orderItemsText = cartItems.map(item => {
       const itemPrice = item.totalPrice * item.quantity;
       let itemName = item.name;
@@ -132,86 +145,55 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
         itemName += ` x${item.quantity}`;
       }
       
-      // Format: "2900 Lechon Belly 5kg" (price first, then name)
-      return `${itemPrice} ${itemName}`;
+      // Format: "2,900 Bilao Fried Chicken" (price with comma, then name)
+      return `${formatPrice(itemPrice)} ${itemName}`;
     }).join('\n');
 
-    // Format payment info - add directly to parts to avoid newline issues
-    const paymentMethodName = selectedPaymentMethod?.name || paymentMethod || 'GCash';
+    // Determine payment method name
+    let paymentMethodName: string;
+    if (serviceType === 'delivery') {
+      // For delivery, use the delivery payment method
+      paymentMethodName = deliveryPaymentMethod === 'cod' ? 'COD' : 'GCash on Delivery';
+    } else {
+      // For pickup, use the selected payment method
+      paymentMethodName = selectedPaymentMethod?.name || paymentMethod || 'GCash';
+    }
     
+    // Format payment info
     let paymentInfo: string;
     if (paymentType === 'down-payment') {
       const remainingBalance = totalPrice - downPaymentAmount;
-      paymentInfo = `${totalPrice}-${downPaymentAmount} DP\n\n${remainingBalance} Bal. ${paymentMethodName}`;
+      // Format: "2,900-1,450 DP" (no space before DP)
+      paymentInfo = `${formatPrice(totalPrice)}-${formatPrice(downPaymentAmount)} DP\n\n${formatPrice(remainingBalance)} Bal. ${paymentMethodName}`;
     } else {
       // Full payment format
-      paymentInfo = `${totalPrice} ${paymentMethodName}`;
+      paymentInfo = `${formatPrice(totalPrice)} ${paymentMethodName}`;
     }
 
-    // Build message using template literals
-    const orderDetails = `${dateTimeDisplay}
+    // Build message - keep original case for address, landmark, city, customer name
+    let orderDetails = `${dateTimeDisplay}
 
-${completeAddress.toLowerCase()}
+${completeAddress}
 
-${city.toLowerCase()}
+${landmarkInfo ? `${landmarkInfo}\n` : ''}
 
-${landmarkInfo ? `${landmarkInfo.toLowerCase()}\n` : ''}
+${city}
 
 ${customerName}
 
-${contactNumber}
-${contactNumber2 ? `${contactNumber2}\n` : ''}
+${formatContactNumber(contactNumber)}
+${contactNumber2 ? `${formatContactNumber(contactNumber2)}\n` : ''}
 
 ${orderItemsText}
 
 ${paymentInfo}`;
 
+    // Add order number at the beginning if provided
+    if (orderNumber) {
+      orderDetails = `Order #${orderNumber}\n\n${orderDetails}`;
+    }
+
     return orderDetails;
-  };
-
-  const handleCopyMessage = async () => {
-    // Always allow copying the message
-    const orderDetails = generateOrderDetails();
-    try {
-      await navigator.clipboard.writeText(orderDetails);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 3000);
-    } catch (err) {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = orderDetails;
-      textArea.style.position = 'fixed';
-      textArea.style.opacity = '0';
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        setCopySuccess(true);
-        setTimeout(() => setCopySuccess(false), 3000);
-      } catch (fallbackErr) {
-        console.error('Failed to copy:', fallbackErr);
-      }
-      document.body.removeChild(textArea);
-    }
-
-    // Only save if not already saved and not a duplicate
-    if (!orderSaved && !isDuplicateOrder()) {
-      try {
-        setIsSubmitting(true);
-        await saveOrderToDatabase();
-      } catch (error: any) {
-        console.error('Error saving order:', error);
-        const errorMessage = error.message?.includes('already been saved') 
-          ? error.message 
-          : 'Failed to save order. Please try again or contact support.';
-        alert(errorMessage);
-      } finally {
-        setIsSubmitting(false);
-      }
-    } else if (isDuplicateOrder() && !orderSaved) {
-      // Show message if it's a duplicate but order wasn't saved in this session
-      alert('This order was already saved recently. The message has been copied, but the order will not be saved again to prevent duplicates.');
-    }
   };
 
   const handleCopyAccountNumber = async () => {
@@ -318,7 +300,7 @@ ${paymentInfo}`;
     }
 
     // Save order to database
-    await createOrder({
+    const order = await createOrder({
       customerName,
       contactNumber,
       contactNumber2: contactNumber2 || undefined,
@@ -330,7 +312,9 @@ ${paymentInfo}`;
       pickupTime: serviceType === 'pickup' ? pickupTime : undefined,
       deliveryDate: serviceType === 'delivery' ? deliveryDate : undefined,
       deliveryTime: serviceType === 'delivery' ? deliveryTime : undefined,
-      paymentMethod: paymentMethod,
+      paymentMethod: serviceType === 'delivery' 
+        ? (deliveryPaymentMethod === 'cod' ? 'cod' : 'gcash')
+        : paymentMethod,
       paymentType: paymentType,
       downPaymentAmount: paymentType === 'down-payment' ? downPaymentAmount : undefined,
       notes: undefined, // Add notes field if needed
@@ -338,6 +322,9 @@ ${paymentInfo}`;
       items: cartItems,
       ipAddress,
     });
+
+    // Return order ID (first 8 characters)
+    const orderNumber = order.id.substring(0, 8);
 
     // Mark order as saved and store in sessionStorage
     setOrderSaved(true);
@@ -365,7 +352,12 @@ ${paymentInfo}`;
     // Keep only last 10 orders in sessionStorage
     const recentOrders = savedOrders.slice(-10);
     sessionStorage.setItem('savedOrders', JSON.stringify(recentOrders));
+
+    return orderNumber;
   };
+
+  const [showInstructionModal, setShowInstructionModal] = useState(false);
+  const [pendingMessengerUrl, setPendingMessengerUrl] = useState<string | null>(null);
 
   const handlePlaceOrder = async () => {
     if (orderSaved) {
@@ -376,15 +368,38 @@ ${paymentInfo}`;
     try {
       setIsSubmitting(true);
 
-      // Save order to database
-      await saveOrderToDatabase();
+      // Save order to database and get order number
+      const orderNumber = await saveOrderToDatabase();
 
-      // Open messenger with order details
-      const orderDetails = generateOrderDetails();
+      // Generate order details and copy to clipboard
+      const orderDetails = generateOrderDetails(orderNumber);
+      
+      // Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(orderDetails);
+      } catch (err) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = orderDetails;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+        } catch (fallbackErr) {
+          console.error('Failed to copy:', fallbackErr);
+        }
+        document.body.removeChild(textArea);
+      }
+
+      // Prepare messenger URL
       const encodedMessage = encodeURIComponent(orderDetails);
       const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
       
-      window.open(messengerUrl, '_blank');
+      // Show instruction modal before opening messenger
+      setPendingMessengerUrl(messengerUrl);
+      setShowInstructionModal(true);
     } catch (error: any) {
       console.error('Error placing order:', error);
       const errorMessage = error.message?.includes('already been saved') 
@@ -393,6 +408,14 @@ ${paymentInfo}`;
       alert(errorMessage);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleContinueToMessenger = () => {
+    if (pendingMessengerUrl) {
+      window.open(pendingMessengerUrl, '_blank');
+      setShowInstructionModal(false);
+      setPendingMessengerUrl(null);
     }
   };
 
@@ -681,6 +704,35 @@ ${paymentInfo}`;
                       })}
                     </select>
                   </div>
+
+                  {/* Delivery Payment Method Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-rca-green mb-3">Payment Method on Delivery *</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryPaymentMethod('cod')}
+                        className={`py-3 px-4 rounded-lg font-medium text-base transition-all duration-200 border-2 ${
+                          deliveryPaymentMethod === 'cod'
+                            ? 'bg-rca-green text-white border-rca-green'
+                            : 'bg-white text-rca-green border-rca-green/30 hover:border-rca-green'
+                        }`}
+                      >
+                        COD
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryPaymentMethod('gcash-on-delivery')}
+                        className={`py-3 px-4 rounded-lg font-medium text-base transition-all duration-200 border-2 ${
+                          deliveryPaymentMethod === 'gcash-on-delivery'
+                            ? 'bg-rca-green text-white border-rca-green'
+                            : 'bg-white text-rca-green border-rca-green/30 hover:border-rca-green'
+                        }`}
+                      >
+                        GCash on Delivery
+                      </button>
+                    </div>
+                  </div>
                 </>
               )}
 
@@ -816,7 +868,7 @@ ${paymentInfo}`;
             )}
           </div>
 
-          <h3 className="text-xl font-playfair font-medium text-rca-green mb-4">Choose Payment Method</h3>
+          <h3 className="text-xl font-playfair font-medium text-rca-green mb-4">Pay Here</h3>
           
           <div className="grid grid-cols-1 gap-4 mb-6">
             {effectivePaymentMethods.map((method) => (
@@ -1001,54 +1053,6 @@ ${paymentInfo}`;
             </div>
           </div>
 
-          {/* Warning note about certificate errors */}
-          <div className="mb-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3">
-            <p className="text-sm text-yellow-800">
-              <span className="font-semibold">⚠️ Note:</span> If you see a security warning when tapping "Place Order via Messenger" below, use the "Copy Message" button instead, then go to our Facebook page and paste the message.
-            </p>
-          </div>
-
-          {/* Copy Message Button */}
-          <button
-            onClick={handleCopyMessage}
-            disabled={isSubmitting}
-            className="w-full mb-3 py-3 rounded-xl font-medium text-base transition-all duration-200 flex items-center justify-center space-x-2 border-2 border-rca-green text-rca-green bg-white hover:bg-rca-green/10 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? (
-              <>
-                <RefreshCw className="h-5 w-5 animate-spin" />
-                <span>Saving Order...</span>
-              </>
-            ) : copySuccess ? (
-              <>
-                <Check className="h-5 w-5" />
-                <span>Message Copied!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="h-5 w-5" />
-                <span>Copy Message{orderSaved ? ' (Already Saved)' : ''}</span>
-              </>
-            )}
-          </button>
-
-          {copySuccess && (
-            <div className="mb-3 bg-green-50 border border-green-300 rounded-lg p-3">
-              <p className="text-sm text-green-800 text-center">
-                ✅ Message copied! Click "Go to Facebook Page" below, then message us and paste the order details.
-              </p>
-            </div>
-          )}
-
-          {/* Go to Facebook Page Button */}
-          <button
-            onClick={() => window.open('https://www.facebook.com/RCALechonBellyAndBilao', '_blank')}
-            className="w-full mb-3 py-3 rounded-xl font-medium text-base transition-all duration-200 flex items-center justify-center space-x-2 border-2 border-blue-600 text-blue-600 bg-white hover:bg-blue-50"
-          >
-            <ExternalLink className="h-5 w-5" />
-            <span>Go to Facebook Page</span>
-          </button>
-
           {/* Place Order Button */}
           <button
             onClick={handlePlaceOrder}
@@ -1063,6 +1067,45 @@ ${paymentInfo}`;
           </p>
         </div>
       </div>
+
+      {/* Instruction Modal */}
+      {showInstructionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+            <div className="p-6 border-t-4 border-rca-green">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 text-rca-green">
+                  <AlertCircle className="h-6 w-6" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Order Copied to Clipboard!</h3>
+                  <div className="space-y-3 text-sm text-gray-700">
+                    <p className="font-medium text-gray-900">Follow these steps:</p>
+                    <ol className="list-decimal list-inside space-y-2 ml-2">
+                      <li>Click "Continue" below to open Facebook Messenger</li>
+                      <li>If your order message doesn't appear automatically, long press in the message box and tap "Paste" to paste your order</li>
+                      <li>Send the message to confirm your order</li>
+                    </ol>
+                    <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                      <p className="text-xs text-blue-800">
+                        <span className="font-semibold">💡 Tip:</span> Your order is already saved in our system. If Messenger doesn't work, you can also go to our Facebook page and send the message there.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex items-center justify-end space-x-3">
+              <button
+                onClick={handleContinueToMessenger}
+                className="px-6 py-2 text-sm font-medium bg-rca-green text-white rounded-lg hover:bg-rca-green/90 transition-colors"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
