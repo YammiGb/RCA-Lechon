@@ -199,7 +199,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedCity, setSelectedCity] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('all'); // 'all', 'pending', 'down-payment', 'fully-paid'
+  const [statusFilter, setStatusFilter] = useState<string>('all'); // 'all', 'pending', 'approved', 'submitted'
   const [showFilterPanel, setShowFilterPanel] = useState<boolean>(false);
 
   // Extract unique cities from orders with counts
@@ -224,13 +224,13 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
   // Calculate filter counts
   const filterCounts = useMemo(() => {
     const pendingCount = orders.filter(order => order.status === 'pending').length;
-    const downPaymentCount = orders.filter(order => order.payment_type === 'down-payment').length;
-    // Fully paid includes orders with payment_type === 'full-payment'
-    const fullyPaidCount = orders.filter(order => order.payment_type === 'full-payment').length;
+    const approvedCount = orders.filter(order => order.status === 'approved' || order.status === 'synced').length;
+    // Submitted includes orders with payment_type === 'full-payment'
+    const submittedCount = orders.filter(order => order.payment_type === 'full-payment').length;
     return {
       pending: pendingCount,
-      downPayment: downPaymentCount,
-      fullyPaid: fullyPaidCount,
+      approved: approvedCount,
+      submitted: submittedCount,
     };
   }, [orders]);
 
@@ -266,9 +266,9 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     // Filter by status
     if (statusFilter === 'pending') {
       filtered = filtered.filter(order => order.status === 'pending');
-    } else if (statusFilter === 'down-payment') {
-      filtered = filtered.filter(order => order.payment_type === 'down-payment');
-    } else if (statusFilter === 'fully-paid') {
+    } else if (statusFilter === 'approved') {
+      filtered = filtered.filter(order => order.status === 'approved' || order.status === 'synced');
+    } else if (statusFilter === 'submitted') {
       filtered = filtered.filter(order => order.payment_type === 'full-payment');
     }
     // 'all' means no filtering
@@ -370,12 +370,12 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     try {
       setProcessingOrderId(order.id);
       await markOrderAsFullyPaid(order.id);
-      showToast('Order marked as fully paid!', 'success');
+      showToast('Order marked as submitted!', 'success');
       setRefreshKey(prev => prev + 1);
       await fetchOrders();
     } catch (error) {
       console.error('Error marking order as fully paid:', error);
-      showToast('Failed to mark order as fully paid. Please try again.', 'error');
+      showToast('Failed to mark order as submitted. Please try again.', 'error');
     } finally {
       setProcessingOrderId(null);
     }
@@ -554,7 +554,8 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     // Add note if exists
     if (order.notes) {
       parts.push('');
-      parts.push(`Note: ${order.notes}`);
+      parts.push('Note:');
+      parts.push(order.notes);
     }
     
     return parts.join('\n');
@@ -797,8 +798,14 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
                 ) : (
                   <CreditCard className="h-4 w-4" />
                 )}
-                <span>Mark as Fully Paid</span>
+                <span>Submit</span>
               </button>
+            )}
+            {order.payment_type === 'full-payment' && order.status !== 'pending' && (
+              <span className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg flex items-center space-x-2">
+                <CreditCard className="h-4 w-4" />
+                <span>Submitted</span>
+              </span>
             )}
             {canSync && (
               <button
@@ -976,9 +983,9 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rca-green focus:border-rca-green"
               >
                 <option value="all">All</option>
-                <option value="pending">Pending Orders ({filterCounts.pending})</option>
-                <option value="down-payment">Down Payment ({filterCounts.downPayment})</option>
-                <option value="fully-paid">Fully Paid ({filterCounts.fullyPaid})</option>
+                <option value="pending">Pending ({filterCounts.pending})</option>
+                <option value="approved">Approved ({filterCounts.approved})</option>
+                <option value="submitted">Submitted ({filterCounts.submitted})</option>
               </select>
             </div>
 
