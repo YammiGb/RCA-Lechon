@@ -332,6 +332,14 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
             <div className="flex items-center space-x-2 text-sm">
               <CreditCard className="h-4 w-4 text-gray-400" />
               <span className="font-medium">{order.payment_method}</span>
+              {order.payment_type && (
+                <span className="text-gray-600">
+                  ({order.payment_type === 'down-payment' ? 'Down Payment' : 'Full Payment'})
+                  {order.payment_type === 'down-payment' && order.down_payment_amount && (
+                    <span className="ml-1">- ₱{order.down_payment_amount.toFixed(2)}</span>
+                  )}
+                </span>
+              )}
             </div>
           </div>
         </div>

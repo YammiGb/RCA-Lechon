@@ -50,6 +50,8 @@ export const useOrders = () => {
     deliveryTime?: string;
     dineInTime?: string;
     paymentMethod: string;
+    paymentType?: 'down-payment' | 'full-payment';
+    downPaymentAmount?: number;
     referenceNumber?: string;
     notes?: string;
     total: number;
@@ -74,6 +76,8 @@ export const useOrders = () => {
           delivery_time: orderData.deliveryTime || null,
           dine_in_time: orderData.dineInTime || null,
           payment_method: orderData.paymentMethod,
+          payment_type: orderData.paymentType || null,
+          down_payment_amount: orderData.downPaymentAmount || null,
           reference_number: orderData.referenceNumber || null,
           notes: orderData.notes || null,
           total: orderData.total,

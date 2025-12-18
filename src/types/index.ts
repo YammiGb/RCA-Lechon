@@ -51,6 +51,8 @@ export interface OrderData {
   partySize?: number;
   dineInTime?: string;
   paymentMethod: 'gcash' | 'maya' | 'bank-transfer';
+  paymentType?: 'down-payment' | 'full-payment';
+  downPaymentAmount?: number;
   referenceNumber?: string;
   total: number;
   notes?: string;

@@ -40,7 +40,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   });
   const [deliveryTime, setDeliveryTime] = useState('12:00');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
-  const [referenceNumber, setReferenceNumber] = useState('');
+  const [paymentType, setPaymentType] = useState<'down-payment' | 'full-payment'>('down-payment');
+  const [downPaymentAmount, setDownPaymentAmount] = useState<number>(500);
   const [copySuccess, setCopySuccess] = useState(false);
   const [copyAccountSuccess, setCopyAccountSuccess] = useState(false);
 
@@ -135,9 +136,17 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
       return `${itemPrice} ${itemName}`;
     }).join('\n');
 
-    // Format payment info
+    // Format payment info - add directly to parts to avoid newline issues
     const paymentMethodName = selectedPaymentMethod?.name || paymentMethod || 'GCash';
-    const paymentInfo = `${totalPrice} ${paymentMethodName}`;
+    
+    let paymentInfo: string;
+    if (paymentType === 'down-payment') {
+      const remainingBalance = totalPrice - downPaymentAmount;
+      paymentInfo = `${totalPrice}-${downPaymentAmount} DP\n\n${remainingBalance} Bal. ${paymentMethodName}`;
+    } else {
+      // Full payment format
+      paymentInfo = `${totalPrice} ${paymentMethodName}`;
+    }
 
     // Build message using template literals
     const orderDetails = `${dateTimeDisplay}
@@ -322,7 +331,8 @@ ${paymentInfo}`;
       deliveryDate: serviceType === 'delivery' ? deliveryDate : undefined,
       deliveryTime: serviceType === 'delivery' ? deliveryTime : undefined,
       paymentMethod: paymentMethod,
-      referenceNumber: referenceNumber.trim() || undefined,
+      paymentType: paymentType,
+      downPaymentAmount: paymentType === 'down-payment' ? downPaymentAmount : undefined,
       notes: undefined, // Add notes field if needed
       total: totalPrice,
       items: cartItems,
@@ -713,6 +723,99 @@ ${paymentInfo}`;
         <div className="bg-rca-off-white rounded-xl shadow-sm p-6 border border-rca-green/20">
           <h2 className="text-2xl font-playfair font-medium text-rca-green mb-6">Payment Options</h2>
           
+          {/* Payment Type Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-rca-green mb-3">Payment Type *</label>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentType('down-payment');
+                  if (downPaymentAmount < 500) {
+                    setDownPaymentAmount(500);
+                  } else if (downPaymentAmount > totalPrice) {
+                    setDownPaymentAmount(totalPrice);
+                  }
+                }}
+                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                  paymentType === 'down-payment'
+                    ? 'border-rca-red bg-rca-red text-white'
+                    : 'border-rca-green/20 bg-rca-off-white text-gray-700 hover:border-rca-red'
+                }`}
+              >
+                <div className="text-lg font-medium">Down Payment</div>
+                <div className="text-xs mt-1 opacity-90">Minimum ₱500</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentType('full-payment')}
+                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                  paymentType === 'full-payment'
+                    ? 'border-rca-red bg-rca-red text-white'
+                    : 'border-rca-green/20 bg-rca-off-white text-gray-700 hover:border-rca-red'
+                }`}
+              >
+                <div className="text-lg font-medium">Full Payment</div>
+                <div className="text-xs mt-1 opacity-90">₱{totalPrice.toFixed(2)}</div>
+              </button>
+            </div>
+
+            {/* Down Payment Amount Input */}
+            {paymentType === 'down-payment' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-rca-green mb-2">
+                  Down Payment Amount * (Minimum ₱500)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={downPaymentAmount}
+                  onChange={(e) => {
+                    // Allow only numbers
+                    const inputValue = e.target.value.replace(/[^0-9]/g, '');
+                    
+                    // If empty, allow empty state temporarily (will validate on blur)
+                    if (inputValue === '') {
+                      setDownPaymentAmount(0);
+                      return;
+                    }
+                    
+                    const numValue = Number(inputValue);
+                    
+                    // Only cap at maximum, don't auto-set minimum while typing
+                    if (numValue > totalPrice) {
+                      setDownPaymentAmount(totalPrice);
+                    } else {
+                      setDownPaymentAmount(numValue);
+                    }
+                  }}
+                  onBlur={() => {
+                    // Validate on blur: ensure minimum 500
+                    if (downPaymentAmount < 500 || downPaymentAmount === 0) {
+                      setDownPaymentAmount(500);
+                    }
+                  }}
+                  className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
+                  placeholder="Enter amount (minimum ₱500)"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Remaining balance: ₱{totalPrice - downPaymentAmount}
+                </p>
+              </div>
+            )}
+
+            {/* Full Payment Display */}
+            {paymentType === 'full-payment' && (
+              <div className="mb-4 p-4 bg-rca-green/5 rounded-lg border border-rca-green/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-rca-green">Full Payment Amount:</span>
+                  <span className="text-xl font-bold text-rca-red">₱{totalPrice.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
           <h3 className="text-xl font-playfair font-medium text-rca-green mb-4">Choose Payment Method</h3>
           
           <div className="grid grid-cols-1 gap-4 mb-6">
@@ -762,8 +865,13 @@ ${paymentInfo}`;
                   )}
                   <p className="text-sm text-gray-600 mb-3">Account Name: {selectedPaymentMethod.account_name}</p>
                   <p className="text-xl font-semibold text-cafe-accent">
-                    Amount: ₱{totalPrice}
+                    Amount: ₱{paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
                   </p>
+                  {paymentType === 'down-payment' && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Remaining: ₱{totalPrice - downPaymentAmount}
+                    </p>
+                  )}
                 </div>
                 <div className="flex-shrink-0">
                   <img 
@@ -780,24 +888,6 @@ ${paymentInfo}`;
             </div>
           )}
 
-          {/* Payment Reference Number Input */}
-          {selectedPaymentMethod && (
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-rca-green mb-2">
-                Payment Reference Number <span className="text-gray-500">(Optional)</span>
-              </label>
-              <input
-                type="text"
-                value={referenceNumber}
-                onChange={(e) => setReferenceNumber(e.target.value)}
-                placeholder="Enter transaction/reference number (e.g., GCash transaction ID)"
-                className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                If you've already made the payment, enter the reference/transaction number here
-              </p>
-            </div>
-          )}
 
           {/* Payment instructions */}
           <div className="bg-cafe-cream border border-cafe-latte rounded-lg p-4">
@@ -885,11 +975,25 @@ ${paymentInfo}`;
           <div className="border-t border-cafe-latte pt-4 mb-4">
             <div className="space-y-2 mb-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-600">Payment Amount:</span>
-                <span className="text-lg font-semibold text-cafe-accent">
-                  ₱{totalPrice}
+                <span className="text-sm font-medium text-gray-600">Payment Type:</span>
+                <span className="text-sm font-semibold text-cafe-dark">
+                  {paymentType === 'down-payment' ? 'Down Payment' : 'Full Payment'}
                 </span>
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-600">Payment Amount:</span>
+                <span className="text-lg font-semibold text-cafe-accent">
+                  ₱{paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
+                </span>
+              </div>
+              {paymentType === 'down-payment' && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">Remaining Balance:</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    ₱{totalPrice - downPaymentAmount}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-between text-2xl font-playfair font-semibold text-cafe-dark border-t border-cafe-latte pt-4">
               <span>Total Amount:</span>
