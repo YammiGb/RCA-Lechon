@@ -3,8 +3,9 @@ import { Plus, Edit, Trash2, Save, X, ArrowLeft, TrendingUp, Package, Users, Loc
 import { MenuItem, Variation, AddOn } from '../types';
 import { addOnCategories } from '../data/menuData';
 import { useMenu } from '../hooks/useMenu';
-import { useCategories, Category } from '../hooks/useCategories';
+import { useCategories } from '../hooks/useCategories';
 import { useSiteSettings } from '../hooks/useSiteSettings';
+import { useOrderNotifications } from '../hooks/useOrderNotifications';
 import ImageUpload from './ImageUpload';
 import CategoryManager from './CategoryManager';
 import PaymentMethodManager from './PaymentMethodManager';
@@ -20,6 +21,7 @@ const AdminDashboard: React.FC = () => {
   const { menuItems, loading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenu();
   const { categories } = useCategories();
   const { siteSettings } = useSiteSettings();
+  const { newOrderCount, markAllAsViewed } = useOrderNotifications();
   const [currentView, setCurrentView] = useState<'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings' | 'orders'>('dashboard');
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -1071,11 +1073,19 @@ const AdminDashboard: React.FC = () => {
                 <span className="font-medium text-gray-900">Payment Methods</span>
               </button>
               <button
-                onClick={() => setCurrentView('orders')}
-                className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
+                onClick={() => {
+                  setCurrentView('orders');
+                  markAllAsViewed();
+                }}
+                className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200 relative"
               >
                 <ShoppingBag className="h-5 w-5 text-gray-400" />
                 <span className="font-medium text-gray-900">Orders</span>
+                {newOrderCount > 0 && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full">
+                    {newOrderCount > 99 ? '99+' : newOrderCount}
+                  </span>
+                )}
               </button>
               <button
                 onClick={() => setCurrentView('settings')}

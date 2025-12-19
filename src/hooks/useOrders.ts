@@ -337,6 +337,29 @@ export const useOrders = () => {
     fetchOrders();
   }, []);
 
+  const deleteOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+
+      if (error) {
+        console.error('Supabase delete error:', error);
+        throw error;
+      }
+
+      // Optimistically update the local state
+      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+
+      // Then fetch fresh data from server to ensure consistency
+      await fetchOrders();
+    } catch (err) {
+      console.error('Error deleting order:', err);
+      throw err;
+    }
+  };
+
   return {
     orders,
     loading,
@@ -347,6 +370,7 @@ export const useOrders = () => {
     updateOrderNotes,
     markOrderAsFullyPaid,
     syncOrderToSheets,
+    deleteOrder,
     refetch: fetchOrders,
   };
 };

@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { Check, X, RefreshCw, ExternalLink, Calendar, Phone, MapPin, CreditCard, Package, AlertCircle, Copy, Filter, ChevronDown, Search, Edit2, Save } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Check, X, RefreshCw, ExternalLink, Calendar, Phone, MapPin, CreditCard, Package, AlertCircle, Copy, Filter, ChevronDown, Search, Edit2, Save, Trash2 } from 'lucide-react';
 import { Order } from '../types';
 import { useOrders } from '../hooks/useOrders';
+import { useOrderNotifications } from '../hooks/useOrderNotifications';
 
 interface OrderVerificationProps {
   webhookUrl?: string;
@@ -180,12 +181,15 @@ const Toast: React.FC<ToastProps> = ({ message, type, isVisible, onClose }) => {
 };
 
 const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => {
-  const { orders, loading, fetchOrders, updateOrderStatus, updateOrderNotes, markOrderAsFullyPaid, syncOrderToSheets } = useOrders();
+  const { orders, loading, fetchOrders, updateOrderStatus, updateOrderNotes, markOrderAsFullyPaid, syncOrderToSheets, deleteOrder } = useOrders();
+  const { isNewOrder, markOrdersAsViewed } = useOrderNotifications();
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [refreshKey, setRefreshKey] = useState(0); // Force re-render
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [orderToReject, setOrderToReject] = useState<Order | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteOrderId, setNoteOrderId] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState<string>('');
@@ -276,6 +280,15 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     return filtered;
   }, [orders, searchTerm, selectedCity, selectedDate, statusFilter]);
 
+  // Mark orders as viewed when component mounts or orders change
+  useEffect(() => {
+    if (orders.length > 0) {
+      const orderIds = orders.map(order => order.id);
+      markOrdersAsViewed(orderIds);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders.length]);
+
   // Use useMemo to ensure filtering happens with latest data
   const pendingOrders = useMemo(() => 
     filteredOrders.filter(order => order.status === 'pending'), 
@@ -356,6 +369,35 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     } finally {
       setProcessingOrderId(null);
       setOrderToReject(null);
+    }
+  };
+
+  const handleDeleteClick = (order: Order) => {
+    setOrderToDelete(order);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!orderToDelete) return;
+
+    try {
+      setProcessingOrderId(orderToDelete.id);
+      setShowDeleteModal(false);
+      await deleteOrder(orderToDelete.id);
+      
+      // Force UI refresh
+      setRefreshKey(prev => prev + 1);
+      await fetchOrders();
+      showToast('Order deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      showToast('Failed to delete order. Please try again.', 'error');
+      // Refresh on error to ensure UI is in sync
+      setRefreshKey(prev => prev + 1);
+      await fetchOrders();
+    } finally {
+      setProcessingOrderId(null);
+      setOrderToDelete(null);
     }
   };
 
@@ -595,6 +637,9 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
               <h3 className="text-lg font-semibold text-gray-900">
                 Order #{order.id.substring(0, 8)}
               </h3>
+              {isNewOrder(order.id) && (
+                <span className="w-2 h-2 bg-red-500 rounded-full" title="New order"></span>
+              )}
               <button
                 onClick={() => handleCopyOrderNumber(order.id)}
                 className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
@@ -807,6 +852,19 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
                 <span>Submitted</span>
               </span>
             )}
+            <button
+              onClick={() => handleDeleteClick(order)}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              title="Delete order"
+            >
+              {isProcessing ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              <span>Delete</span>
+            </button>
             {canSync && (
               <button
                 onClick={() => handleSyncToSheets(order)}
@@ -856,6 +914,20 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
         onCancel={() => {
           setShowRejectModal(false);
           setOrderToReject(null);
+        }}
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        title="Delete Order"
+        message={`Are you sure you want to delete order #${orderToDelete?.id.substring(0, 8)}? This action cannot be undone and will permanently remove the order from the system.`}
+        confirmText="Delete Order"
+        cancelText="Cancel"
+        type="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => {
+          setShowDeleteModal(false);
+          setOrderToDelete(null);
         }}
       />
 
