@@ -1,7 +1,7 @@
 // Service Worker for background notifications
 // This allows notifications to work even when the page is in the background
 
-const CACHE_NAME = 'just-cafe-v1';
+const CACHE_NAME = 'just-cafe-v2';
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
