@@ -65,6 +65,16 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [step]);
 
+  // If COD is selected for delivery, force down payment
+  React.useEffect(() => {
+    if (serviceType === 'delivery' && deliveryPaymentMethod === 'cod' && paymentType === 'full-payment') {
+      setPaymentType('down-payment');
+      if (downPaymentAmount < 500) {
+        setDownPaymentAmount(500);
+      }
+    }
+  }, [serviceType, deliveryPaymentMethod, paymentType, downPaymentAmount]);
+
   // Use payment methods from database
   const effectivePaymentMethods = paymentMethods;
 
