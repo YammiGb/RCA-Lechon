@@ -96,6 +96,52 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     setStep('payment');
   };
 
+  // Check item availability for selected date
+  React.useEffect(() => {
+    const checkAvailability = async () => {
+      if (cartItems.length === 0) {
+        setUnavailableItems([]);
+        return;
+      }
+
+      const selectedDate = serviceType === 'pickup' ? pickupDate : deliveryDate;
+      if (!selectedDate) {
+        setUnavailableItems([]);
+        return;
+      }
+
+      try {
+        setIsCheckingAvailability(true);
+        const availableItemIds = await getAvailabilityForDate(selectedDate);
+        
+        // If null, no date availability is set, so all items are available
+        if (availableItemIds === null) {
+          setUnavailableItems([]);
+          return;
+        }
+
+        // Extract original menu item IDs from cart items
+        // Cart item IDs are in format: "menuItemId:::CART:::timestamp-random"
+        const unavailable: string[] = [];
+        cartItems.forEach(item => {
+          const originalItemId = item.id.split(':::CART:::')[0];
+          if (!availableItemIds.includes(originalItemId)) {
+            unavailable.push(item.name);
+          }
+        });
+
+        setUnavailableItems(unavailable);
+      } catch (error) {
+        console.error('Error checking availability:', error);
+        setUnavailableItems([]);
+      } finally {
+        setIsCheckingAvailability(false);
+      }
+    };
+
+    checkAvailability();
+  }, [cartItems, serviceType, pickupDate, deliveryDate, getAvailabilityForDate]);
+
   // Generate order details message (reusable for both link and copy)
   const generateOrderDetails = (orderNumber?: string) => {
     const completeAddress = serviceType === 'delivery' ? `${address}` : SHOP_ADDRESS;
