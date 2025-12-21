@@ -99,9 +99,9 @@ export const showNotification = (
 
   try {
     const notification = new Notification(title, {
-      icon: '/favicon.ico', // You can customize this
-      badge: '/favicon.ico',
-      tag: 'new-order', // This groups notifications
+      icon: '/logo.jpg',
+      badge: '/logo.jpg',
+      tag: options?.tag || 'new-order', // Use provided tag or default
       requireInteraction: false,
       ...options,
     });
@@ -131,16 +131,31 @@ export const notifyNewOrder = (orderNumber?: string) => {
   console.log('notifyNewOrder called with orderNumber:', orderNumber);
   console.log('Notification permission:', Notification.permission);
   console.log('Notification supported:', 'Notification' in window);
+  console.log('Is iOS:', isIOS());
+  console.log('Is PWA:', isPWA());
+  console.log('User Agent:', navigator.userAgent);
   
-  // Check if notifications are supported
-  if (!isNotificationSupported()) {
-    console.warn('Notifications not supported on this platform');
+  // Check if browser supports notifications
+  if (!('Notification' in window)) {
+    console.error('Notifications not supported: Browser does not support Notification API');
+    return null;
+  }
+  
+  // iOS-specific check - iOS requires PWA for notifications
+  if (isIOS() && !isPWA()) {
+    console.error('iOS notifications require PWA: Please add the app to home screen');
+    console.error('Instructions: Tap Share button → Add to Home Screen');
     return null;
   }
   
   // Check permission
   if (Notification.permission !== 'granted') {
     console.warn('Notification permission not granted:', Notification.permission);
+    if (Notification.permission === 'default') {
+      console.warn('Permission not yet requested. User needs to grant permission first.');
+    } else if (Notification.permission === 'denied') {
+      console.error('Notification permission denied. User must enable in browser settings.');
+    }
     return null;
   }
   
@@ -150,14 +165,22 @@ export const notifyNewOrder = (orderNumber?: string) => {
     : 'A new order has been placed';
 
   try {
-    const result = showNotification(title, {
+    // Use regular Notification API with mobile-optimized options
+    const notificationOptions: NotificationOptions = {
       body,
-      icon: '/logo.jpg', // Use logo.jpg instead of favicon
+      icon: '/logo.jpg',
       badge: '/logo.jpg',
-      tag: 'new-order',
+      tag: `order-${orderNumber || 'new'}`, // Unique tag per order to prevent duplicates
       requireInteraction: false,
       silent: false,
-    });
+    };
+
+    // Add vibration for mobile devices (if supported)
+    if ('vibrate' in navigator) {
+      notificationOptions.vibrate = [200, 100, 200];
+    }
+
+    const result = showNotification(title, notificationOptions);
     
     if (!result) {
       console.warn('Failed to show notification. Permission:', Notification.permission);
@@ -168,6 +191,7 @@ export const notifyNewOrder = (orderNumber?: string) => {
     return result;
   } catch (error) {
     console.error('Error showing notification:', error);
+    console.error('Error details:', error instanceof Error ? error.message : String(error));
     return null;
   }
 };

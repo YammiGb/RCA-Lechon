@@ -5,13 +5,16 @@ import { requestNotificationPermission, notifyNewOrder } from '../utils/notifica
 
 const VIEWED_ORDERS_KEY = 'rca_viewed_orders';
 const LAST_CHECK_KEY = 'rca_last_order_check';
+const NOTIFIED_ORDERS_KEY = 'rca_notified_orders'; // Track orders we've already notified about
 
 export const useOrderNotifications = () => {
   const [newOrderCount, setNewOrderCount] = useState<number>(0);
   const [viewedOrderIds, setViewedOrderIds] = useState<Set<string>>(new Set());
+  const [notifiedOrderIds, setNotifiedOrderIds] = useState<Set<string>>(new Set());
   const [lastCheckTime, setLastCheckTime] = useState<Date | null>(null);
+  const [realtimeSubscribed, setRealtimeSubscribed] = useState<boolean>(false);
 
-  // Load viewed orders from localStorage and request notification permission
+  // Load viewed orders and notified orders from localStorage
   useEffect(() => {
     const stored = localStorage.getItem(VIEWED_ORDERS_KEY);
     if (stored) {
@@ -20,6 +23,17 @@ export const useOrderNotifications = () => {
         setViewedOrderIds(new Set(ids));
       } catch (e) {
         console.error('Error loading viewed orders:', e);
+      }
+    }
+
+    // Load notified orders to prevent duplicate notifications
+    const notifiedStored = localStorage.getItem(NOTIFIED_ORDERS_KEY);
+    if (notifiedStored) {
+      try {
+        const ids = JSON.parse(notifiedStored) as string[];
+        setNotifiedOrderIds(new Set(ids));
+      } catch (e) {
+        console.error('Error loading notified orders:', e);
       }
     }
 
@@ -75,13 +89,30 @@ export const useOrderNotifications = () => {
         if (unviewedOrders.length > 0) {
           setNewOrderCount(unviewedOrders.length);
           
-          // Fallback: If real-time subscription failed, show notifications via polling
-          // Only show notification for the most recent order to avoid spam
-          const mostRecentOrder = unviewedOrders[0];
-          if (mostRecentOrder && Notification.permission === 'granted') {
-            const orderNumber = mostRecentOrder.id.substring(0, 8).toUpperCase();
-            console.log('Fallback: Showing notification for order via polling:', orderNumber);
-            notifyNewOrder(orderNumber);
+          // Fallback: Only use polling if real-time is NOT subscribed
+          // This prevents duplicate notifications
+          if (!realtimeSubscribed) {
+            // Find orders that haven't been notified yet
+            const unnotifiedOrders = unviewedOrders.filter(
+              order => !notifiedOrderIds.has(order.id)
+            );
+            
+            if (unnotifiedOrders.length > 0) {
+              // Only show notification for the most recent unnotified order
+              const mostRecentOrder = unnotifiedOrders[0];
+              if (mostRecentOrder && Notification.permission === 'granted') {
+                const orderNumber = mostRecentOrder.id.substring(0, 8).toUpperCase();
+                console.log('Fallback: Showing notification for order via polling:', orderNumber);
+                notifyNewOrder(orderNumber);
+                
+                // Mark as notified to prevent duplicates
+                setNotifiedOrderIds(prev => {
+                  const newSet = new Set([...prev, mostRecentOrder.id]);
+                  localStorage.setItem(NOTIFIED_ORDERS_KEY, JSON.stringify(Array.from(newSet)));
+                  return newSet;
+                });
+              }
+            }
           }
         } else {
           setNewOrderCount(0);
@@ -93,7 +124,7 @@ export const useOrderNotifications = () => {
       console.error('Error in checkNewOrders:', err);
       // Silently fail - real-time subscription is the primary mechanism
     }
-  }, [lastCheckTime, viewedOrderIds]);
+  }, [lastCheckTime, viewedOrderIds, notifiedOrderIds, realtimeSubscribed]);
 
   // Set up real-time subscription for new orders
   useEffect(() => {
@@ -135,8 +166,8 @@ export const useOrderNotifications = () => {
               return;
             }
             
-            // Check if this order is new (not viewed)
-            if (!viewedOrderIds.has(newOrder.id)) {
+            // Check if this order is new (not viewed) and not already notified
+            if (!viewedOrderIds.has(newOrder.id) && !notifiedOrderIds.has(newOrder.id)) {
               console.log('Processing new order notification');
               setNewOrderCount(prev => prev + 1);
               
@@ -147,11 +178,18 @@ export const useOrderNotifications = () => {
               // Check notification permission before showing
               if (Notification.permission === 'granted') {
                 notifyNewOrder(orderNumber);
+                
+                // Mark as notified to prevent duplicate notifications
+                setNotifiedOrderIds(prev => {
+                  const newSet = new Set([...prev, newOrder.id]);
+                  localStorage.setItem(NOTIFIED_ORDERS_KEY, JSON.stringify(Array.from(newSet)));
+                  return newSet;
+                });
               } else {
                 console.warn('Notification permission not granted, skipping notification');
               }
             } else {
-              console.log('Order already viewed, skipping notification');
+              console.log('Order already viewed or notified, skipping notification');
             }
           }
         )
@@ -161,6 +199,7 @@ export const useOrderNotifications = () => {
           // If subscription fails or closes, try to reconnect after a delay
           if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
             console.warn('Subscription error/closed, will retry in 5 seconds...');
+            setRealtimeSubscribed(false); // Mark real-time as not working
             if (subscriptionTimeout) {
               clearTimeout(subscriptionTimeout);
             }
@@ -170,6 +209,7 @@ export const useOrderNotifications = () => {
             }, 5000);
           } else if (status === 'SUBSCRIBED') {
             console.log('Successfully subscribed to orders changes');
+            setRealtimeSubscribed(true); // Mark real-time as working
             // Clear any pending retry
             if (subscriptionTimeout) {
               clearTimeout(subscriptionTimeout);
@@ -191,7 +231,7 @@ export const useOrderNotifications = () => {
         supabase.removeChannel(channel);
       }
     };
-  }, [viewedOrderIds]);
+  }, [viewedOrderIds, notifiedOrderIds]);
 
   // Periodically check for new orders (every 10 seconds as fallback)
   useEffect(() => {
