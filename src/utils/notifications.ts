@@ -212,6 +212,69 @@ function setupNotificationHandlers(notification: Notification, isMobile: boolean
   };
 };
 
+// Queue for notifications when page is hidden
+let notificationQueue: Array<{ title: string; body: string; orderNumber?: string }> = [];
+
+// Handle page visibility changes - show queued notifications when page becomes visible
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && notificationQueue.length > 0) {
+      console.log('Page became visible, showing queued notifications:', notificationQueue.length);
+      const queued = notificationQueue.shift();
+      if (queued) {
+        // Small delay to ensure page is fully visible
+        setTimeout(() => {
+          showNotificationDirectly(queued.title, { body: queued.body }, queued.orderNumber);
+        }, 500);
+      }
+    }
+  });
+}
+
+/**
+ * Show notification directly (internal function)
+ */
+function showNotificationDirectly(title: string, options: NotificationOptions, orderNumber?: string) {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  try {
+    if (isMobile) {
+      // Mobile: Try multiple fallback strategies
+      if (options.body && options.body.trim().length > 0) {
+        try {
+          console.log('Mobile: Attempting notification with body only');
+          const notification = new Notification(title, { body: options.body });
+          console.log('✅ Mobile notification created with body only');
+          setupNotificationHandlers(notification, isMobile);
+          return notification;
+        } catch (bodyError) {
+          console.warn('Body-only notification failed:', bodyError);
+        }
+      }
+      
+      // Try title only
+      try {
+        console.log('Mobile: Attempting notification with title only');
+        const titleOnlyNotification = new Notification(title);
+        console.log('✅ Mobile notification created with title only');
+        setupNotificationHandlers(titleOnlyNotification, isMobile);
+        return titleOnlyNotification;
+      } catch (titleOnlyError) {
+        console.error('❌ Title-only notification failed:', titleOnlyError);
+        throw titleOnlyError;
+      }
+    } else {
+      // Desktop: Use full options
+      const notification = new Notification(title, options);
+      setupNotificationHandlers(notification, isMobile);
+      return notification;
+    }
+  } catch (error) {
+    console.error('❌ Error creating notification:', error);
+    throw error;
+  }
+}
+
 /**
  * Show notification for new order
  */
@@ -228,6 +291,7 @@ export const notifyNewOrder = (orderNumber?: string) => {
   console.log('User Agent:', navigator.userAgent);
   console.log('Document visibility:', document.visibilityState);
   console.log('Window focused:', document.hasFocus());
+  console.log('Page hidden:', document.hidden);
   
   // Check if browser supports notifications
   if (!('Notification' in window)) {
@@ -273,6 +337,25 @@ export const notifyNewOrder = (orderNumber?: string) => {
     ? `Order #${orderNumber} has been placed`
     : 'A new order has been placed';
 
+  // Check if page is visible - mobile browsers often block notifications when page is hidden
+  const isPageVisible = document.visibilityState === 'visible' && !document.hidden;
+  
+  console.log('Page visibility check:', {
+    visibilityState: document.visibilityState,
+    hidden: document.hidden,
+    isPageVisible,
+    hasFocus: document.hasFocus()
+  });
+
+  // If page is hidden on mobile, queue the notification
+  if (isMobile && !isPageVisible) {
+    console.log('Page is hidden on mobile, queuing notification');
+    notificationQueue.push({ title, body, orderNumber });
+    // Also show alert as immediate fallback
+    alert(`🔔 ${title}\n\n${body}\n\n(Page is in background - notification will show when you return)`);
+    return null;
+  }
+
   try {
     // Build notification options - mobile browsers reject invalid options
     const notificationOptions: NotificationOptions = {
@@ -281,16 +364,14 @@ export const notifyNewOrder = (orderNumber?: string) => {
     };
 
     // On desktop, add icon and badge
-    // On mobile, showNotification will handle options more carefully
     if (!isMobile) {
       notificationOptions.icon = '/logo.jpg';
       notificationOptions.badge = '/logo.jpg';
       notificationOptions.silent = false;
     }
-    // On mobile, don't pass icon/badge - let showNotification handle it safely
 
     // Add vibration for mobile devices (if supported) - do this separately
-    if ('vibrate' in navigator && isMobile) {
+    if ('vibrate' in navigator && isMobile && isPageVisible) {
       try {
         navigator.vibrate([200, 100, 200]);
         console.log('Vibration triggered');
@@ -299,8 +380,8 @@ export const notifyNewOrder = (orderNumber?: string) => {
       }
     }
 
-    console.log('Calling showNotification with options:', notificationOptions);
-    const result = showNotification(title, notificationOptions);
+    console.log('Attempting to show notification with options:', notificationOptions);
+    const result = showNotificationDirectly(title, notificationOptions, orderNumber);
     
     if (!result) {
       const errorMsg = `Failed to show notification. Permission: ${Notification.permission}`;
@@ -311,12 +392,12 @@ export const notifyNewOrder = (orderNumber?: string) => {
       }
     } else {
       console.log('✅ Notification shown successfully');
-      // Also log to help debug mobile issues
       if (isMobile) {
         console.log('Mobile notification displayed. If you don\'t see it:');
         console.log('1. Check notification tray/center');
         console.log('2. Check browser notification settings');
         console.log('3. Check phone Do Not Disturb settings');
+        console.log('4. Make sure page is in foreground');
       }
     }
     
