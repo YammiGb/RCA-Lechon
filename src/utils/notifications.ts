@@ -276,21 +276,43 @@ function showNotificationDirectly(title: string, options: NotificationOptions, o
 }
 
 /**
+ * Show notification via Service Worker (works in background)
+ */
+async function showNotificationViaServiceWorker(title: string, body: string, orderNumber?: string) {
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    try {
+      // Send message to service worker
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SHOW_NOTIFICATION',
+        title,
+        body,
+        orderNumber
+      });
+      console.log('✅ Notification sent to Service Worker (works in background)');
+      return true;
+    } catch (error) {
+      console.error('Failed to send notification to Service Worker:', error);
+      return false;
+    }
+  }
+  return false;
+}
+
+/**
  * Show notification for new order
  */
-export const notifyNewOrder = (orderNumber?: string) => {
+export const notifyNewOrder = async (orderNumber?: string) => {
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
   console.log('=== NOTIFICATION DEBUG ===');
   console.log('notifyNewOrder called with orderNumber:', orderNumber);
   console.log('Notification permission:', Notification.permission);
-  console.log('Notification supported:', 'Notification' in window);
+  console.log('Service Worker available:', 'serviceWorker' in navigator);
+  console.log('Service Worker controller:', navigator.serviceWorker?.controller ? 'Yes' : 'No');
   console.log('Is iOS:', isIOS());
   console.log('Is PWA:', isPWA());
   console.log('Is Mobile:', isMobile);
-  console.log('User Agent:', navigator.userAgent);
   console.log('Document visibility:', document.visibilityState);
-  console.log('Window focused:', document.hasFocus());
   console.log('Page hidden:', document.hidden);
   
   // Check if browser supports notifications
@@ -337,30 +359,32 @@ export const notifyNewOrder = (orderNumber?: string) => {
     ? `Order #${orderNumber} has been placed`
     : 'A new order has been placed';
 
-  // Check if page is visible - mobile browsers often block notifications when page is hidden
-  const isPageVisible = document.visibilityState === 'visible' && !document.hidden;
-  
-  console.log('Page visibility check:', {
-    visibilityState: document.visibilityState,
-    hidden: document.hidden,
-    isPageVisible,
-    hasFocus: document.hasFocus()
-  });
-
-  // If page is hidden on mobile, queue the notification
-  if (isMobile && !isPageVisible) {
-    console.log('Page is hidden on mobile, queuing notification');
-    notificationQueue.push({ title, body, orderNumber });
-    // Also show alert as immediate fallback
-    alert(`🔔 ${title}\n\n${body}\n\n(Page is in background - notification will show when you return)`);
-    return null;
+  // Try Service Worker first (works in background like Facebook)
+  if ('serviceWorker' in navigator) {
+    // Wait for service worker to be ready
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      if (registration.active) {
+        console.log('Service Worker is active, using it for notification');
+        const success = await showNotificationViaServiceWorker(title, body, orderNumber);
+        if (success) {
+          console.log('✅ Notification sent via Service Worker (works even in background)');
+          return {} as Notification; // Return dummy object
+        }
+      }
+    } catch (swError) {
+      console.warn('Service Worker not ready, falling back to regular notification:', swError);
+    }
   }
 
+  // Fallback to regular Notification API if Service Worker fails
+  console.log('Falling back to regular Notification API');
+  
   try {
-    // Build notification options - mobile browsers reject invalid options
+    // Build notification options
     const notificationOptions: NotificationOptions = {
       body,
-      tag: `order-${orderNumber || 'new'}`, // Unique tag per order to prevent duplicates
+      tag: `order-${orderNumber || 'new'}`,
     };
 
     // On desktop, add icon and badge
@@ -370,8 +394,8 @@ export const notifyNewOrder = (orderNumber?: string) => {
       notificationOptions.silent = false;
     }
 
-    // Add vibration for mobile devices (if supported) - do this separately
-    if ('vibrate' in navigator && isMobile && isPageVisible) {
+    // Add vibration for mobile devices
+    if ('vibrate' in navigator && isMobile) {
       try {
         navigator.vibrate([200, 100, 200]);
         console.log('Vibration triggered');
@@ -384,32 +408,22 @@ export const notifyNewOrder = (orderNumber?: string) => {
     const result = showNotificationDirectly(title, notificationOptions, orderNumber);
     
     if (!result) {
-      const errorMsg = `Failed to show notification. Permission: ${Notification.permission}`;
-      console.warn(errorMsg);
+      console.warn('Regular notification also failed');
       if (isMobile) {
-        // Fallback: Show alert on mobile if notification fails
-        alert(`🔔 ${title}\n\n${body}\n\n(Notification API failed, showing alert instead)`);
+        alert(`🔔 ${title}\n\n${body}`);
       }
     } else {
-      console.log('✅ Notification shown successfully');
-      if (isMobile) {
-        console.log('Mobile notification displayed. If you don\'t see it:');
-        console.log('1. Check notification tray/center');
-        console.log('2. Check browser notification settings');
-        console.log('3. Check phone Do Not Disturb settings');
-        console.log('4. Make sure page is in foreground');
-      }
+      console.log('✅ Notification shown via regular API');
     }
     
     return result;
   } catch (error) {
     const errorDetails = error instanceof Error ? error.message : String(error);
     console.error('❌ Error showing notification:', error);
-    console.error('Error details:', errorDetails);
     
-    // Fallback alert on mobile
+    // Final fallback: alert
     if (isMobile) {
-      alert(`🔔 ${title}\n\n${body}\n\n(Error: ${errorDetails})`);
+      alert(`🔔 ${title}\n\n${body}`);
     }
     
     return null;

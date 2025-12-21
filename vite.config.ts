@@ -7,4 +7,12 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  // Ensure Service Worker is served correctly
+  publicDir: 'public',
+  build: {
+    rollupOptions: {
+      // Don't bundle the service worker
+      external: [],
+    },
+  },
 });
