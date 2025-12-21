@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { ArrowLeft, AlertCircle, Copy, Check } from 'lucide-react';
 import { CartItem, PaymentMethod, ServiceType } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
@@ -99,6 +99,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   // Check item availability for selected date
   React.useEffect(() => {
     let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
     
     const checkAvailability = async () => {
       if (cartItems.length === 0) {
@@ -114,7 +115,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
 
       try {
         if (isMounted) setIsCheckingAvailability(true);
-        const availableItemIds = await getAvailabilityForDate(selectedDate);
+        const availableItemIds = await getAvailabilityForDateRef.current(selectedDate);
         
         if (!isMounted) return;
         
@@ -149,13 +150,13 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     };
 
     // Debounce the check to avoid too many requests
-    const timeoutId = setTimeout(checkAvailability, 300);
+    timeoutId = setTimeout(checkAvailability, 300);
     
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [cartItems, serviceType, pickupDate, deliveryDate, getAvailabilityForDate]);
+  }, [cartItems, serviceType, pickupDate, deliveryDate]);
 
   // Generate order details message (reusable for both link and copy)
   const generateOrderDetails = (orderNumber?: string) => {
