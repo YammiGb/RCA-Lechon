@@ -1133,18 +1133,18 @@ const AdminDashboard: React.FC = () => {
                 )}
               </button>
               <button
-                onClick={() => setCurrentView('settings')}
-                className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
-              >
-                <Settings className="h-5 w-5 text-gray-400" />
-                <span className="font-medium text-gray-900">Site Settings</span>
-              </button>
-              <button
                 onClick={() => setCurrentView('date-availability')}
                 className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
               >
                 <Calendar className="h-5 w-5 text-gray-400" />
                 <span className="font-medium text-gray-900">Date Availability</span>
+              </button>
+              <button
+                onClick={() => setCurrentView('settings')}
+                className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
+              >
+                <Settings className="h-5 w-5 text-gray-400" />
+                <span className="font-medium text-gray-900">Site Settings</span>
               </button>
             </div>
           </div>
