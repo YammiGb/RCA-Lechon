@@ -103,18 +103,39 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     
     const checkAvailability = async () => {
       if (cartItems.length === 0) {
-        if (isMounted) setUnavailableItems([]);
+        if (isMounted) {
+          setUnavailableItems([]);
+          setIsCheckingAvailability(false);
+          lastCheckedRef.current = '';
+        }
         return;
       }
 
       const selectedDate = serviceType === 'pickup' ? pickupDate : deliveryDate;
       if (!selectedDate) {
-        if (isMounted) setUnavailableItems([]);
+        if (isMounted) {
+          setUnavailableItems([]);
+          setIsCheckingAvailability(false);
+          lastCheckedRef.current = '';
+        }
+        return;
+      }
+
+      // Create a unique key for this check to avoid duplicate requests
+      const itemIds = cartItems.map(item => item.id.split(':::CART:::')[0]).sort().join(',');
+      const checkKey = `${selectedDate}-${itemIds}`;
+      
+      // Skip if we already checked this exact combination
+      if (lastCheckedRef.current === checkKey) {
         return;
       }
 
       try {
-        if (isMounted) setIsCheckingAvailability(true);
+        if (isMounted) {
+          setIsCheckingAvailability(true);
+          lastCheckedRef.current = checkKey;
+        }
+        
         const availableItemIds = await getAvailabilityForDateRef.current(selectedDate);
         
         if (!isMounted) return;
@@ -137,14 +158,13 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
         });
 
         setUnavailableItems(unavailable);
+        setIsCheckingAvailability(false);
       } catch (error) {
         console.error('Error checking availability:', error);
         if (isMounted) {
           setUnavailableItems([]);
-        }
-      } finally {
-        if (isMounted) {
           setIsCheckingAvailability(false);
+          lastCheckedRef.current = ''; // Reset on error so it can retry
         }
       }
     };
@@ -443,6 +463,7 @@ ${paymentInfo}`;
   const [duplicateOrderNumber, setDuplicateOrderNumber] = useState<string | null>(null);
   const [unavailableItems, setUnavailableItems] = useState<string[]>([]);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const lastCheckedRef = useRef<string>(''); // Track last checked date+items combination
 
   const handlePlaceOrder = async () => {
     if (orderSaved) {
