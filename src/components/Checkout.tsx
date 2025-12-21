@@ -370,6 +370,8 @@ ${paymentInfo}`;
   const [pendingMessengerUrl, setPendingMessengerUrl] = useState<string | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [copiedOrderDetails, setCopiedOrderDetails] = useState<string>('');
+  const [showDuplicateError, setShowDuplicateError] = useState(false);
+  const [duplicateOrderNumber, setDuplicateOrderNumber] = useState<string | null>(null);
 
   const handlePlaceOrder = async () => {
     if (orderSaved) {
@@ -412,9 +414,9 @@ ${paymentInfo}`;
       const encodedMessage = encodeURIComponent(orderDetails);
       const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
       
-      // Show instruction modal before opening messenger
+      // Show receipt first, then instruction modal
       setPendingMessengerUrl(messengerUrl);
-      setShowInstructionModal(true);
+      setShowReceipt(true);
     } catch (error: any) {
       console.error('Error placing order:', error);
       const errorMessage = error.message?.includes('already been saved') 
@@ -431,8 +433,17 @@ ${paymentInfo}`;
       window.open(pendingMessengerUrl, '_blank');
       setShowInstructionModal(false);
       setPendingMessengerUrl(null);
-      // Show receipt view after closing modal
-      setShowReceipt(true);
+    }
+  };
+
+  const handleCloseReceipt = () => {
+    setShowReceipt(false);
+    // After closing receipt, show instruction modal
+    if (pendingMessengerUrl) {
+      setShowInstructionModal(true);
+    } else {
+      // If no messenger URL, just redirect to home
+      window.location.href = '/';
     }
   };
 
@@ -1164,14 +1175,10 @@ ${paymentInfo}`;
             </div>
             <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex items-center justify-end">
               <button
-                onClick={() => {
-                  setShowReceipt(false);
-                  // Reset form and go back to menu
-                  window.location.href = '/';
-                }}
+                onClick={handleCloseReceipt}
                 className="px-6 py-2 text-sm font-medium bg-rca-green text-white rounded-lg hover:bg-rca-green/90 transition-colors"
               >
-                Close
+                Continue
               </button>
             </div>
           </div>
