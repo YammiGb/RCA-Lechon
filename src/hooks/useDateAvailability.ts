@@ -41,17 +41,18 @@ export const useDateAvailability = () => {
         .from('date_availability')
         .select('available_item_ids')
         .eq('date', date)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          // No row found for this date
-          return null;
-        }
         throw fetchError;
       }
 
-      return data?.available_item_ids || [];
+      // If no data found, return null (meaning no restrictions)
+      if (!data) {
+        return null;
+      }
+
+      return data.available_item_ids || [];
     } catch (err) {
       console.error('Error fetching availability for date:', err);
       return null;
