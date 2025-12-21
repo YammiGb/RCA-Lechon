@@ -1144,6 +1144,39 @@ ${paymentInfo}`;
           </div>
         </div>
       )}
+
+      {/* Receipt View */}
+      {showReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 my-8 transform transition-all">
+            <div className="p-6 border-t-4 border-rca-green">
+              <div className="text-center mb-6">
+                <div className="inline-block px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-semibold mb-4">
+                  COPIED
+                </div>
+                <h2 className="text-2xl font-playfair font-semibold text-rca-green">ORDER DETAILS</h2>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                <pre className="whitespace-pre-wrap font-mono text-sm text-gray-800 leading-relaxed">
+                  {copiedOrderDetails}
+                </pre>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex items-center justify-end">
+              <button
+                onClick={() => {
+                  setShowReceipt(false);
+                  // Reset form and go back to menu
+                  window.location.href = '/';
+                }}
+                className="px-6 py-2 text-sm font-medium bg-rca-green text-white rounded-lg hover:bg-rca-green/90 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
