@@ -32,7 +32,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().split('T')[0];
   });
-  const [pickupTime, setPickupTime] = useState('12:00');
+  const [pickupTime, setPickupTime] = useState('09:00');
   const [deliveryDate, setDeliveryDate] = useState(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
