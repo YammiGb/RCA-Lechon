@@ -158,17 +158,32 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
         // Extract original menu item IDs from cart items
         // Cart item IDs are in format: "menuItemId:::CART:::timestamp-random"
         const unavailable: string[] = [];
+        
+        // Normalize available IDs to strings for comparison
+        const normalizedAvailableIds = availableItemIds.map(id => String(id).toLowerCase().trim());
+        
         cartItems.forEach(item => {
           const originalItemId = item.id.split(':::CART:::')[0];
-          // Check if the item ID (as string) is in the available list
-          // availableItemIds should be an array of UUID strings
-          const isAvailable = availableItemIds.some(availableId => {
-            const availableIdStr = String(availableId);
-            return availableIdStr === originalItemId || availableIdStr === originalItemId.trim();
-          });
+          const normalizedCartItemId = originalItemId.toLowerCase().trim();
+          
+          // Check if the item ID is in the available list
+          const isAvailable = normalizedAvailableIds.includes(normalizedCartItemId);
+          
           if (!isAvailable) {
             unavailable.push(item.name);
           }
+        });
+
+        console.log('Date availability check:', {
+          selectedDate,
+          availableItemIds,
+          normalizedAvailableIds,
+          cartItems: cartItems.map(item => ({
+            name: item.name,
+            originalId: item.id.split(':::CART:::')[0],
+            normalizedId: item.id.split(':::CART:::')[0].toLowerCase().trim()
+          })),
+          unavailable
         });
 
         setUnavailableItems(unavailable);
