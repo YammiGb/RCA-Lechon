@@ -100,46 +100,92 @@ export const showNotification = (
   try {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
-    const notification = new Notification(title, {
-      icon: '/logo.jpg',
-      badge: '/logo.jpg',
-      tag: options?.tag || 'new-order', // Use provided tag or default
-      requireInteraction: isMobile, // On mobile, require interaction so notification stays
-      ...options,
-    });
-
-    // Auto-close after delay (longer on mobile)
-    const closeDelay = isMobile ? 10000 : 5000; // 10 seconds on mobile, 5 on desktop
-    setTimeout(() => {
+    // Mobile browsers are very strict - start with minimal options
+    let notificationOptions: NotificationOptions = {};
+    
+    if (isMobile) {
+      // Mobile: Use only the most basic, widely-supported options
+      notificationOptions = {
+        body: options?.body || '',
+        tag: options?.tag || 'new-order',
+        // Don't include icon, badge, or requireInteraction on mobile - they often cause failures
+      };
+      
+      console.log('Mobile: Creating notification with minimal options:', notificationOptions);
+      
+      // Try with minimal options first
       try {
-        notification.close();
-      } catch (e) {
-        // Ignore errors when closing
+        const notification = new Notification(title, notificationOptions);
+        console.log('✅ Mobile notification created successfully with minimal options');
+        
+        // Set up handlers
+        setupNotificationHandlers(notification, isMobile);
+        return notification;
+      } catch (minimalError) {
+        console.warn('Minimal options failed, trying title-only:', minimalError);
+        
+        // Last resort: title only
+        try {
+          const titleOnlyNotification = new Notification(title);
+          console.log('✅ Mobile notification created with title only');
+          setupNotificationHandlers(titleOnlyNotification, isMobile);
+          return titleOnlyNotification;
+        } catch (titleOnlyError) {
+          console.error('❌ Even title-only notification failed:', titleOnlyError);
+          throw titleOnlyError; // Re-throw to trigger fallback alert
+        }
       }
-    }, closeDelay);
-
-    // Handle click on notification
-    notification.onclick = () => {
-      try {
-        window.focus();
-        notification.close();
-      } catch (e) {
-        console.warn('Error handling notification click:', e);
-      }
-    };
-
-    // Handle errors
-    notification.onerror = (error) => {
-      console.error('Notification error event:', error);
-    };
-
-    return notification;
+    } else {
+      // Desktop: Can use more options
+      notificationOptions = {
+        body: options?.body || '',
+        icon: options?.icon || '/logo.jpg',
+        badge: options?.badge || '/logo.jpg',
+        tag: options?.tag || 'new-order',
+        requireInteraction: options?.requireInteraction || false,
+        silent: options?.silent || false,
+      };
+      
+      console.log('Desktop: Creating notification with full options:', notificationOptions);
+      const notification = new Notification(title, notificationOptions);
+      setupNotificationHandlers(notification, isMobile);
+      return notification;
+    }
   } catch (error) {
-    console.error('Error creating notification:', error);
+    console.error('❌ Error creating notification:', error);
     console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
     console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     return null;
   }
+};
+
+// Helper function to set up notification handlers
+function setupNotificationHandlers(notification: Notification, isMobile: boolean) {
+  // Auto-close after delay (longer on mobile)
+  const closeDelay = isMobile ? 10000 : 5000;
+  setTimeout(() => {
+    try {
+      notification.close();
+    } catch (e) {
+      // Ignore errors when closing
+    }
+  }, closeDelay);
+
+  // Handle click on notification
+  notification.onclick = () => {
+    try {
+      window.focus();
+      notification.close();
+    } catch (e) {
+      console.warn('Error handling notification click:', e);
+    }
+  };
+
+  // Handle errors
+  notification.onerror = (error) => {
+    console.error('Notification error event:', error);
+  };
 };
 
 /**
@@ -204,19 +250,22 @@ export const notifyNewOrder = (orderNumber?: string) => {
     : 'A new order has been placed';
 
   try {
-    // Use regular Notification API with mobile-optimized options
+    // Build notification options - mobile browsers reject invalid options
     const notificationOptions: NotificationOptions = {
       body,
-      icon: '/logo.jpg',
-      badge: '/logo.jpg',
       tag: `order-${orderNumber || 'new'}`, // Unique tag per order to prevent duplicates
-      requireInteraction: false,
-      silent: false,
-      // Mobile-specific: don't auto-close on mobile, let user dismiss
-      ...(isMobile ? { requireInteraction: true } : {}),
     };
 
-    // Add vibration for mobile devices (if supported)
+    // On desktop, add icon and badge
+    // On mobile, showNotification will handle options more carefully
+    if (!isMobile) {
+      notificationOptions.icon = '/logo.jpg';
+      notificationOptions.badge = '/logo.jpg';
+      notificationOptions.silent = false;
+    }
+    // On mobile, don't pass icon/badge - let showNotification handle it safely
+
+    // Add vibration for mobile devices (if supported) - do this separately
     if ('vibrate' in navigator && isMobile) {
       try {
         navigator.vibrate([200, 100, 200]);
@@ -226,6 +275,7 @@ export const notifyNewOrder = (orderNumber?: string) => {
       }
     }
 
+    console.log('Calling showNotification with options:', notificationOptions);
     const result = showNotification(title, notificationOptions);
     
     if (!result) {
