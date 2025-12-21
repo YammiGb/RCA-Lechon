@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { MenuItem } from '../types';
 
-export const useMenu = () => {
+export const useMenu = (filterByDate?: string) => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -241,6 +241,7 @@ export const useMenu = () => {
 
   useEffect(() => {
     fetchMenuItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterByDate]);
 
   return {
