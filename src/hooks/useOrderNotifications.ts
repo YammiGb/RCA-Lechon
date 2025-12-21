@@ -48,15 +48,22 @@ export const useOrderNotifications = () => {
     }
 
     // Check notification permission status (don't request automatically - requires user interaction)
-    console.log('Notification permission status:', Notification.permission);
-    console.log('Notification API available:', 'Notification' in window);
+    const hasNotification = typeof window !== 'undefined' && 'Notification' in window;
+    console.log('Notification API available:', hasNotification);
     
-    if (Notification.permission === 'granted') {
-      console.log('Notification permission already granted');
-    } else if (Notification.permission === 'default') {
-      console.log('Notification permission not yet requested. User needs to interact to grant permission.');
+    if (hasNotification) {
+      const NotificationAPI = (window as any).Notification;
+      console.log('Notification permission status:', NotificationAPI.permission);
+      
+      if (NotificationAPI.permission === 'granted') {
+        console.log('Notification permission already granted');
+      } else if (NotificationAPI.permission === 'default') {
+        console.log('Notification permission not yet requested. User needs to interact to grant permission.');
+      } else {
+        console.log('Notification permission denied by user');
+      }
     } else {
-      console.log('Notification permission denied by user');
+      console.log('Notification API not available on this platform');
     }
   }, []);
 
@@ -100,7 +107,10 @@ export const useOrderNotifications = () => {
             if (unnotifiedOrders.length > 0) {
               // Only show notification for the most recent unnotified order
               const mostRecentOrder = unnotifiedOrders[0];
-              if (mostRecentOrder && Notification.permission === 'granted') {
+              const hasNotification = typeof window !== 'undefined' && 'Notification' in window;
+              const notificationGranted = hasNotification && (window as any).Notification.permission === 'granted';
+              
+              if (mostRecentOrder && notificationGranted) {
                 const orderNumber = mostRecentOrder.id.substring(0, 8).toUpperCase();
                 console.log('Fallback: Showing notification for order via polling:', orderNumber);
                 notifyNewOrder(orderNumber);
@@ -176,7 +186,10 @@ export const useOrderNotifications = () => {
               console.log('Calling notifyNewOrder with orderNumber:', orderNumber);
               
               // Check notification permission before showing
-              if (Notification.permission === 'granted') {
+              const hasNotification = typeof window !== 'undefined' && 'Notification' in window;
+              const notificationGranted = hasNotification && (window as any).Notification.permission === 'granted';
+              
+              if (notificationGranted) {
                 notifyNewOrder(orderNumber);
                 
                 // Mark as notified to prevent duplicate notifications
@@ -186,7 +199,7 @@ export const useOrderNotifications = () => {
                   return newSet;
                 });
               } else {
-                console.warn('Notification permission not granted, skipping notification');
+                console.warn('Notification permission not granted or API not available, skipping notification');
               }
             } else {
               console.log('Order already viewed or notified, skipping notification');
