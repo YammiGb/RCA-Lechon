@@ -973,16 +973,39 @@ const AdminDashboard: React.FC = () => {
             <div className="flex items-center space-x-4">
               <button
                 onClick={async () => {
+                  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                  const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+                  
+                  console.log('=== TEST NOTIFICATION DEBUG ===');
+                  console.log('Is Mobile:', isMobile);
+                  console.log('Is iOS:', isIOS);
+                  console.log('Is PWA:', isPWA);
+                  console.log('Notification permission:', Notification.permission);
+                  console.log('Notification API available:', 'Notification' in window);
+                  
                   const granted = await requestNotificationPermission();
                   if (granted) {
-                    notifyNewOrder('TEST123');
-                    alert('Notification permission granted! Test notification sent.');
+                    const result = notifyNewOrder('TEST123');
+                    if (result) {
+                      alert('✅ Test notification sent! Check your notification tray.\n\nIf you don\'t see it on mobile:\n1. Check notification center/tray\n2. Check browser notification settings\n3. Check phone Do Not Disturb mode');
+                    } else {
+                      alert('⚠️ Notification API called but notification may not have displayed.\n\nCheck browser console for details.\n\nOn mobile, check:\n1. Notification tray/center\n2. Browser notification settings\n3. Phone notification settings');
+                    }
                   } else {
-                    alert('Notification permission not granted. Please check your browser settings.');
+                    let errorMsg = '❌ Notification permission not granted.\n\n';
+                    if (isIOS && !isPWA) {
+                      errorMsg += 'iOS requires PWA installation:\n1. Tap Share → Add to Home Screen\n2. Open from home screen icon\n3. Try again';
+                    } else if (isMobile) {
+                      errorMsg += 'Android: Go to browser Settings → Site Settings → Notifications → Allow';
+                    } else {
+                      errorMsg += 'Please check your browser settings and allow notifications.';
+                    }
+                    alert(errorMsg);
                   }
                 }}
                 className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                title="Test notifications"
+                title="Test notifications - Check console for mobile debugging info"
               >
                 Test Notification
               </button>

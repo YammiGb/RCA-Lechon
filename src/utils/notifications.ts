@@ -98,28 +98,46 @@ export const showNotification = (
   }
 
   try {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
     const notification = new Notification(title, {
       icon: '/logo.jpg',
       badge: '/logo.jpg',
       tag: options?.tag || 'new-order', // Use provided tag or default
-      requireInteraction: false,
+      requireInteraction: isMobile, // On mobile, require interaction so notification stays
       ...options,
     });
 
-    // Auto-close after 5 seconds
+    // Auto-close after delay (longer on mobile)
+    const closeDelay = isMobile ? 10000 : 5000; // 10 seconds on mobile, 5 on desktop
     setTimeout(() => {
-      notification.close();
-    }, 5000);
+      try {
+        notification.close();
+      } catch (e) {
+        // Ignore errors when closing
+      }
+    }, closeDelay);
 
     // Handle click on notification
     notification.onclick = () => {
-      window.focus();
-      notification.close();
+      try {
+        window.focus();
+        notification.close();
+      } catch (e) {
+        console.warn('Error handling notification click:', e);
+      }
+    };
+
+    // Handle errors
+    notification.onerror = (error) => {
+      console.error('Notification error event:', error);
     };
 
     return notification;
   } catch (error) {
-    console.error('Error showing notification:', error);
+    console.error('Error creating notification:', error);
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
     return null;
   }
 };
@@ -128,33 +146,54 @@ export const showNotification = (
  * Show notification for new order
  */
 export const notifyNewOrder = (orderNumber?: string) => {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  console.log('=== NOTIFICATION DEBUG ===');
   console.log('notifyNewOrder called with orderNumber:', orderNumber);
   console.log('Notification permission:', Notification.permission);
   console.log('Notification supported:', 'Notification' in window);
   console.log('Is iOS:', isIOS());
   console.log('Is PWA:', isPWA());
+  console.log('Is Mobile:', isMobile);
   console.log('User Agent:', navigator.userAgent);
+  console.log('Document visibility:', document.visibilityState);
+  console.log('Window focused:', document.hasFocus());
   
   // Check if browser supports notifications
   if (!('Notification' in window)) {
-    console.error('Notifications not supported: Browser does not support Notification API');
+    const errorMsg = 'Notifications not supported: Browser does not support Notification API';
+    console.error(errorMsg);
+    if (isMobile) {
+      // Show alert on mobile when notifications aren't supported
+      alert(`⚠️ ${errorMsg}\n\nPlease use Chrome or Firefox browser.`);
+    }
     return null;
   }
   
   // iOS-specific check - iOS requires PWA for notifications
   if (isIOS() && !isPWA()) {
-    console.error('iOS notifications require PWA: Please add the app to home screen');
+    const errorMsg = 'iOS notifications require PWA installation';
+    console.error(errorMsg);
     console.error('Instructions: Tap Share button → Add to Home Screen');
+    alert(`⚠️ ${errorMsg}\n\nPlease add the app to your home screen:\n1. Tap Share button (□↑)\n2. Select "Add to Home Screen"\n3. Open from home screen icon`);
     return null;
   }
   
   // Check permission
   if (Notification.permission !== 'granted') {
-    console.warn('Notification permission not granted:', Notification.permission);
-    if (Notification.permission === 'default') {
+    const permissionStatus = Notification.permission;
+    console.warn('Notification permission not granted:', permissionStatus);
+    
+    if (permissionStatus === 'default') {
       console.warn('Permission not yet requested. User needs to grant permission first.');
-    } else if (Notification.permission === 'denied') {
+      if (isMobile) {
+        alert('📱 Please grant notification permission when prompted.\n\nClick "Test Notification" button to request permission.');
+      }
+    } else if (permissionStatus === 'denied') {
       console.error('Notification permission denied. User must enable in browser settings.');
+      if (isMobile) {
+        alert('🔔 Notification permission denied!\n\nPlease enable notifications:\n\nAndroid: Browser Settings → Site Settings → Notifications → Allow\n\niOS: Settings → Safari → [Your Site] → Allow Notifications');
+      }
     }
     return null;
   }
@@ -173,25 +212,51 @@ export const notifyNewOrder = (orderNumber?: string) => {
       tag: `order-${orderNumber || 'new'}`, // Unique tag per order to prevent duplicates
       requireInteraction: false,
       silent: false,
+      // Mobile-specific: don't auto-close on mobile, let user dismiss
+      ...(isMobile ? { requireInteraction: true } : {}),
     };
 
     // Add vibration for mobile devices (if supported)
-    if ('vibrate' in navigator) {
-      notificationOptions.vibrate = [200, 100, 200];
+    if ('vibrate' in navigator && isMobile) {
+      try {
+        navigator.vibrate([200, 100, 200]);
+        console.log('Vibration triggered');
+      } catch (vibError) {
+        console.warn('Vibration failed:', vibError);
+      }
     }
 
     const result = showNotification(title, notificationOptions);
     
     if (!result) {
-      console.warn('Failed to show notification. Permission:', Notification.permission);
+      const errorMsg = `Failed to show notification. Permission: ${Notification.permission}`;
+      console.warn(errorMsg);
+      if (isMobile) {
+        // Fallback: Show alert on mobile if notification fails
+        alert(`🔔 ${title}\n\n${body}\n\n(Notification API failed, showing alert instead)`);
+      }
     } else {
-      console.log('Notification shown successfully');
+      console.log('✅ Notification shown successfully');
+      // Also log to help debug mobile issues
+      if (isMobile) {
+        console.log('Mobile notification displayed. If you don\'t see it:');
+        console.log('1. Check notification tray/center');
+        console.log('2. Check browser notification settings');
+        console.log('3. Check phone Do Not Disturb settings');
+      }
     }
     
     return result;
   } catch (error) {
-    console.error('Error showing notification:', error);
-    console.error('Error details:', error instanceof Error ? error.message : String(error));
+    const errorDetails = error instanceof Error ? error.message : String(error);
+    console.error('❌ Error showing notification:', error);
+    console.error('Error details:', errorDetails);
+    
+    // Fallback alert on mobile
+    if (isMobile) {
+      alert(`🔔 ${title}\n\n${body}\n\n(Error: ${errorDetails})`);
+    }
+    
     return null;
   }
 };
