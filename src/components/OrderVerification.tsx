@@ -724,6 +724,13 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       parts.push(`${formatPrice(totalPrice)} ${paymentMethodDisplay}`);
     }
     
+    // Add "FULLPAYMENT" at the end if payment type is full payment
+    if (order.payment_type === 'full-payment') {
+      parts.push('');
+      parts.push('');
+      parts.push('FULLPAYMENT');
+    }
+    
     // Add note if exists
     if (order.notes) {
       parts.push('');
