@@ -704,35 +704,6 @@ ${paymentInfo}`;
                       })}
                     </select>
                   </div>
-
-                  {/* Delivery Payment Method Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-rca-green mb-3">Payment Method on Delivery *</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setDeliveryPaymentMethod('cod')}
-                        className={`py-3 px-4 rounded-lg font-medium text-base transition-all duration-200 border-2 ${
-                          deliveryPaymentMethod === 'cod'
-                            ? 'bg-rca-green text-white border-rca-green'
-                            : 'bg-white text-rca-green border-rca-green/30 hover:border-rca-green'
-                        }`}
-                      >
-                        COD
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeliveryPaymentMethod('gcash-on-delivery')}
-                        className={`py-3 px-4 rounded-lg font-medium text-base transition-all duration-200 border-2 ${
-                          deliveryPaymentMethod === 'gcash-on-delivery'
-                            ? 'bg-rca-green text-white border-rca-green'
-                            : 'bg-white text-rca-green border-rca-green/30 hover:border-rca-green'
-                        }`}
-                      >
-                        GCash on Delivery
-                      </button>
-                    </div>
-                  </div>
                 </>
               )}
 
@@ -775,6 +746,51 @@ ${paymentInfo}`;
         <div className="bg-rca-off-white rounded-xl shadow-sm p-6 border border-rca-green/20">
           <h2 className="text-2xl font-playfair font-medium text-rca-green mb-6">Payment Options</h2>
           
+          {/* Delivery Payment Method Selection - Only show for delivery */}
+          {serviceType === 'delivery' && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-rca-green mb-3">Payment Method on Delivery *</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeliveryPaymentMethod('cod');
+                    // If COD is selected, force down payment and disable full payment
+                    setPaymentType('down-payment');
+                    if (downPaymentAmount < 500) {
+                      setDownPaymentAmount(500);
+                    }
+                  }}
+                  className={`py-3 px-4 rounded-lg font-medium text-base transition-all duration-200 border-2 ${
+                    deliveryPaymentMethod === 'cod'
+                      ? 'bg-rca-green text-white border-rca-green'
+                      : 'bg-white text-rca-green border-rca-green/30 hover:border-rca-green'
+                  }`}
+                >
+                  COD
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryPaymentMethod('gcash-on-delivery')}
+                  className={`py-3 px-4 rounded-lg font-medium text-base transition-all duration-200 border-2 ${
+                    deliveryPaymentMethod === 'gcash-on-delivery'
+                      ? 'bg-rca-green text-white border-rca-green'
+                      : 'bg-white text-rca-green border-rca-green/30 hover:border-rca-green'
+                  }`}
+                >
+                  GCash on Delivery
+                </button>
+              </div>
+              {deliveryPaymentMethod === 'cod' && (
+                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <span className="font-medium">⚠️ Note:</span> Down payment is required for COD orders.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Payment Type Selection */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-rca-green mb-3">Payment Type *</label>
@@ -801,10 +817,15 @@ ${paymentInfo}`;
               <button
                 type="button"
                 onClick={() => setPaymentType('full-payment')}
+                disabled={serviceType === 'delivery' && deliveryPaymentMethod === 'cod'}
                 className={`p-4 rounded-lg border-2 transition-all duration-200 ${
                   paymentType === 'full-payment'
                     ? 'border-rca-red bg-rca-red text-white'
                     : 'border-rca-green/20 bg-rca-off-white text-gray-700 hover:border-rca-red'
+                } ${
+                  serviceType === 'delivery' && deliveryPaymentMethod === 'cod'
+                    ? 'opacity-50 cursor-not-allowed'
+                    : ''
                 }`}
               >
                 <div className="text-lg font-medium">Full Payment</div>
