@@ -52,31 +52,31 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   const colors = colorClasses[type];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-        <div className={`p-6 border-t-4 ${colors.border}`}>
-          <div className="flex items-start space-x-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full transform transition-all">
+        <div className={`p-4 sm:p-6 border-t-4 ${colors.border}`}>
+          <div className="flex items-start space-x-3 sm:space-x-4">
             <div className={`flex-shrink-0 ${colors.icon}`}>
-              {type === 'danger' && <X className="h-6 w-6" />}
-              {type === 'warning' && <AlertCircle className="h-6 w-6" />}
-              {type === 'info' && <AlertCircle className="h-6 w-6" />}
+              {type === 'danger' && <X className="h-5 w-5 sm:h-6 sm:w-6" />}
+              {type === 'warning' && <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6" />}
+              {type === 'info' && <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6" />}
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-              <p className="text-sm text-gray-600">{message}</p>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+              <p className="text-xs sm:text-sm text-gray-600 break-words">{message}</p>
             </div>
           </div>
         </div>
-        <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex items-center justify-end space-x-3">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 rounded-b-xl flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:space-x-3 sm:gap-0">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${colors.button}`}
+            className={`px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${colors.button}`}
           >
             {confirmText}
           </button>
@@ -106,10 +106,10 @@ const NoteModal: React.FC<NoteModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-        <div className="p-6 border-t-4 border-blue-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Note</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full transform transition-all">
+        <div className="p-4 sm:p-6 border-t-4 border-blue-200">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Add Note</h3>
           <textarea
             value={noteValue}
             onChange={(e) => onNoteChange(e.target.value)}
@@ -119,18 +119,18 @@ const NoteModal: React.FC<NoteModalProps> = ({
             autoFocus
           />
         </div>
-        <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex items-center justify-end space-x-3">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 rounded-b-xl flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:space-x-3 sm:gap-0">
           <button
             onClick={onCancel}
             disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             onClick={onSave}
             disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-white bg-rca-green rounded-lg hover:bg-rca-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2.5 text-sm font-medium text-white bg-rca-green rounded-lg hover:bg-rca-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? 'Saving...' : 'Save'}
           </button>
@@ -165,10 +165,10 @@ const Toast: React.FC<ToastProps> = ({ message, type, isVisible, onClose }) => {
   };
 
   return (
-    <div className="fixed top-4 right-4 z-50 animate-slide-in">
-      <div className={`${colorClasses[type]} border-2 rounded-lg p-4 shadow-lg flex items-center space-x-3 min-w-[300px] max-w-md`}>
+    <div className="fixed top-4 right-4 left-4 sm:left-auto z-50 animate-slide-in">
+      <div className={`${colorClasses[type]} border-2 rounded-lg p-3 sm:p-4 shadow-lg flex items-center space-x-3 w-full sm:min-w-[300px] sm:max-w-md`}>
         <div className="flex-shrink-0">{icons[type]}</div>
-        <p className="flex-1 text-sm font-medium">{message}</p>
+        <p className="flex-1 text-xs sm:text-sm font-medium break-words">{message}</p>
         <button
           onClick={onClose}
           className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
@@ -754,25 +754,25 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     const daysRemaining = calculateDaysRemaining(order);
 
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <div className="flex items-center space-x-2">
-              <h3 className="text-lg font-semibold text-gray-900">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                 Order #{order.id.substring(0, 8)}
               </h3>
               {isNewOrder(order.id) && (
-                <span className="w-2 h-2 bg-red-500 rounded-full" title="New order"></span>
+                <span className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0" title="New order"></span>
               )}
               <button
                 onClick={() => handleCopyOrderNumber(order.id)}
-                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
                 title="Copy order number"
               >
                 <Copy className="h-4 w-4" />
               </button>
               {daysRemaining !== null && (
-                <div className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-lg border border-blue-200 text-xs font-medium">
+                <div className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-lg border border-blue-200 text-xs font-medium flex-shrink-0">
                   <Calendar className="h-3 w-3 mr-1" />
                   <span>
                     {daysRemaining === 0 
@@ -784,28 +784,28 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
                 </div>
               )}
             </div>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-xs sm:text-sm text-gray-500">
               {formatDate(order.created_at)}
             </p>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
             <button
               onClick={() => handleCopyOrderDetails(order)}
-              className="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-1"
+              className="px-2 sm:px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-1 flex-shrink-0"
               title="Copy order details"
             >
-              <Copy className="h-3 w-3" />
-              <span>Copy Details</span>
+              <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Copy Details</span>
             </button>
             <button
               onClick={() => handleOpenNoteModal(order)}
-              className="px-3 py-1.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center space-x-1"
+              className="px-2 sm:px-3 py-1.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center space-x-1 flex-shrink-0"
               title="Add or edit note"
             >
-              <Edit2 className="h-3 w-3" />
-              <span>Add Note</span>
+              <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Add Note</span>
             </button>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+            <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
               order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
               order.status === 'approved' ? 'bg-blue-100 text-blue-800' :
               order.status === 'synced' ? 'bg-green-100 text-green-800' :
@@ -818,35 +818,40 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="space-y-2">
-            <div className="flex items-center space-x-2 text-sm">
-              <Phone className="h-4 w-4 text-gray-400" />
-              <span className="font-medium">{order.customer_name}</span>
+            <div className="flex items-center space-x-2 text-sm sm:text-base">
+              <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
+              <span className="font-medium break-words">{order.customer_name}</span>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <Phone className="h-4 w-4 text-gray-400" />
-              <span>{order.contact_number}</span>
-              {order.contact_number2 && <span> / {order.contact_number2}</span>}
+            <div className="flex items-start space-x-2 text-xs sm:text-sm text-gray-600">
+              <Phone className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div className="flex flex-col sm:flex-row sm:gap-1 break-all">
+                <span>{order.contact_number}</span>
+                {order.contact_number2 && <span className="sm:before:content-['/'] sm:before:mx-1">{order.contact_number2}</span>}
+              </div>
             </div>
             {order.address && (
-              <div className="flex items-start space-x-2 text-sm text-gray-600">
-                <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
-                <span>{order.address}{order.landmark ? `, ${order.landmark}` : ''}</span>
+              <div className="flex items-start space-x-2 text-xs sm:text-sm text-gray-600">
+                <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 break-words">
+                  <span>{order.address}</span>
+                  {order.landmark && <span>, {order.landmark}</span>}
+                </div>
               </div>
             )}
             {order.city && (
-              <div className="text-sm text-gray-600 ml-6">{order.city}</div>
+              <div className="text-xs sm:text-sm text-gray-600 ml-6 sm:ml-6">{order.city}</div>
             )}
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center space-x-2 text-sm">
-              <Package className="h-4 w-4 text-gray-400" />
+            <div className="flex items-center space-x-2 text-sm sm:text-base">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
               <span className="font-medium capitalize">{order.service_type}</span>
             </div>
             {(order.pickup_date || order.delivery_date) && (
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                <span>
+              <div className="flex items-start space-x-2 text-xs sm:text-sm text-gray-600">
+                <Calendar className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <span className="break-words">
                   {order.service_type === 'pickup' 
                     ? `${order.pickup_date} at ${order.pickup_time}`
                     : order.service_type === 'delivery'
@@ -856,17 +861,19 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
                 </span>
               </div>
             )}
-            <div className="flex items-center space-x-2 text-sm">
-              <CreditCard className="h-4 w-4 text-gray-400" />
-              <span className="font-medium">{order.payment_method}</span>
-              {order.payment_type && (
-                <span className="text-gray-600">
-                  ({order.payment_type === 'down-payment' ? 'Down Payment' : 'Full Payment'})
-                  {order.payment_type === 'down-payment' && order.down_payment_amount && (
-                    <span className="ml-1">- ₱{order.down_payment_amount.toFixed(2)}</span>
-                  )}
-                </span>
-              )}
+            <div className="flex items-start space-x-2 text-xs sm:text-sm">
+              <CreditCard className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 break-words">
+                <span className="font-medium">{order.payment_method}</span>
+                {order.payment_type && (
+                  <span className="text-gray-600">
+                    {' '}({order.payment_type === 'down-payment' ? 'Down Payment' : 'Full Payment'})
+                    {order.payment_type === 'down-payment' && order.down_payment_amount && (
+                      <span className="ml-1">- ₱{order.down_payment_amount.toFixed(2)}</span>
+                    )}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -917,9 +924,9 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
                 }
 
                 return (
-                  <div key={item.id} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
-                    <div className="flex-1">
-                      <span className="font-medium">{item.name}</span>
+                  <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm bg-gray-50 p-2 sm:p-3 rounded gap-1 sm:gap-0">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium break-words">{item.name}</span>
                       {variationName && (
                         <span className="text-gray-600"> - {variationName}</span>
                       )}
@@ -931,7 +938,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
                       )}
                       <span className="text-gray-600"> x{item.quantity}</span>
                     </div>
-                    <span className="font-medium">{formatPrice(item.subtotal)}</span>
+                    <span className="font-medium text-right sm:text-left">{formatPrice(item.subtotal)}</span>
                   </div>
                 );
               })}
@@ -939,30 +946,30 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-          <div className="text-lg font-semibold text-gray-900">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200 gap-3">
+          <div className="text-base sm:text-lg font-semibold text-gray-900">
             Total: <span className="text-green-600">{formatPrice(order.total)}</span>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-2 sm:space-y-0">
             {order.status === 'pending' && (
               <>
                 <button
                   onClick={() => handleRejectClick(order)}
                   disabled={isProcessing}
-                  className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  className="px-4 py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
                   <span>Reject</span>
                 </button>
                 <button
                   onClick={() => handleApprove(order)}
                   disabled={isProcessing}
-                  className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
                 >
                   {isProcessing ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                   ) : (
-                    <Check className="h-4 w-4" />
+                    <Check className="h-4 w-4 sm:h-5 sm:w-5" />
                   )}
                   <span>Approve</span>
                 </button>
@@ -972,32 +979,32 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
               <button
                 onClick={() => handleMarkAsFullyPaid(order)}
                 disabled={isProcessing}
-                className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-4 py-2.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
               >
                 {isProcessing ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                 ) : (
-                  <CreditCard className="h-4 w-4" />
+                  <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
                 )}
                 <span>Submit</span>
               </button>
             )}
             {order.payment_type === 'full-payment' && order.status !== 'pending' && (
-              <span className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg flex items-center space-x-2">
-                <CreditCard className="h-4 w-4" />
+              <span className="px-4 py-2.5 bg-purple-100 text-purple-700 rounded-lg flex items-center justify-center space-x-2 text-sm sm:text-base">
+                <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span>Submitted</span>
               </span>
             )}
             <button
               onClick={() => handleDeleteClick(order)}
               disabled={isProcessing}
-              className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              className="px-4 py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
               title="Delete order"
             >
               {isProcessing ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
+                <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
               ) : (
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
               <span>Delete</span>
             </button>
@@ -1005,18 +1012,18 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
               <button
                 onClick={() => handleSyncToSheets(order)}
                 disabled={isProcessing}
-                className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-4 py-2.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
               >
                 {isProcessing ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                 ) : (
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink className="h-4 w-4 sm:h-5 sm:w-5" />
                 )}
                 <span>Sync to Sheets</span>
               </button>
             )}
             {order.synced_to_sheets && (
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm flex items-center space-x-1">
+              <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs sm:text-sm flex items-center justify-center space-x-1">
                 <Check className="h-4 w-4" />
                 <span>Synced</span>
               </span>
@@ -1098,26 +1105,26 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-semibold text-gray-900">Order Verification</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+        <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Order Verification</h2>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowFilterPanel(!showFilterPanel)}
-            className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 text-sm sm:text-base ${
               showFilterPanel 
                 ? 'bg-rca-green text-white' 
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
             <Filter className="h-4 w-4" />
-            <span>Filters</span>
+            <span className="hidden sm:inline">Filters</span>
           </button>
           <button
             onClick={() => fetchOrders()}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
+            className="px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2 text-sm sm:text-base"
           >
             <RefreshCw className="h-4 w-4" />
-            <span>Refresh</span>
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
@@ -1146,8 +1153,8 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
 
       {/* Filter Panel */}
       {showFilterPanel && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Filter by City */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1259,12 +1266,12 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
 
       {/* Pending Orders */}
       <div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">
+        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
           Pending Orders ({pendingOrders.length})
         </h3>
         {pendingOrders.length === 0 ? (
-          <div className="bg-gray-50 rounded-lg p-8 text-center">
-            <p className="text-gray-500">No pending orders</p>
+          <div className="bg-gray-50 rounded-lg p-6 sm:p-8 text-center">
+            <p className="text-sm sm:text-base text-gray-500">No pending orders</p>
           </div>
         ) : (
           pendingOrders.map(order => (
@@ -1276,7 +1283,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       {/* Approved Orders (Not Synced) */}
       {approvedOrders.filter(o => !o.synced_to_sheets).length > 0 && (
         <div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
             Approved Orders - Pending Sync ({approvedOrders.filter(o => !o.synced_to_sheets).length})
           </h3>
           {approvedOrders
@@ -1290,7 +1297,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       {/* Synced Orders */}
       {syncedOrders.length > 0 && (
         <div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
             Synced Orders ({syncedOrders.length})
           </h3>
           {syncedOrders.map(order => (
