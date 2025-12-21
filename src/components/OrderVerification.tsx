@@ -718,6 +718,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       const downPayment = Math.round(order.down_payment_amount);
       const remainingBalance = totalPrice - downPayment;
       parts.push(`${formatPrice(totalPrice)}-${formatPrice(downPayment)} DP`);
+      parts.push(''); // Empty line between down payment and remaining balance
       parts.push(`${formatPrice(remainingBalance)} Bal. ${paymentMethodDisplay}`);
     } else {
       parts.push(`${formatPrice(totalPrice)} ${paymentMethodDisplay}`);
