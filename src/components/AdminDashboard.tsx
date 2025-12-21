@@ -1001,7 +1001,11 @@ const AdminDashboard: React.FC = () => {
                   console.log('Is Mobile:', isMobile);
                   console.log('Is iOS:', isIOS);
                   console.log('Is PWA:', isPWA);
-                  console.log('Notification permission:', Notification.permission);
+                  if ('Notification' in window) {
+                    console.log('Notification permission:', (window as any).Notification.permission);
+                  } else {
+                    console.log('Notification API not available');
+                  }
                   console.log('Notification API available:', 'Notification' in window);
                   
                   const granted = await requestNotificationPermission();

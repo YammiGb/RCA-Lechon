@@ -23,7 +23,7 @@ export const isPWA = (): boolean => {
  * Check if notifications are supported on this platform
  */
 export const isNotificationSupported = (): boolean => {
-  if (!('Notification' in window)) {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
     return false;
   }
 
@@ -40,7 +40,7 @@ export const isNotificationSupported = (): boolean => {
  */
 export const requestNotificationPermission = async (): Promise<boolean> => {
   // Check if browser supports notifications
-  if (!('Notification' in window)) {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
     console.warn('This browser does not support notifications');
     return false;
   }
@@ -51,19 +51,26 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
     return false;
   }
 
+  // Safely get Notification API
+  const NotificationAPI = (window as any).Notification;
+  if (!NotificationAPI) {
+    console.warn('Notification API is not available');
+    return false;
+  }
+
   // Check if permission was already granted
-  if (Notification.permission === 'granted') {
+  if (NotificationAPI.permission === 'granted') {
     return true;
   }
 
   // Check if permission was already denied
-  if (Notification.permission === 'denied') {
+  if (NotificationAPI.permission === 'denied') {
     return false;
   }
 
   // Request permission
   try {
-    const permission = await Notification.requestPermission();
+    const permission = await NotificationAPI.requestPermission();
     localStorage.setItem(NOTIFICATION_PERMISSION_KEY, 'true');
     return permission === 'granted';
   } catch (error) {
@@ -80,7 +87,7 @@ export const showNotification = (
   options?: NotificationOptions
 ): Notification | null => {
   // Check if browser supports notifications
-  if (!('Notification' in window)) {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
     console.warn('This browser does not support notifications');
     return null;
   }
@@ -91,15 +98,16 @@ export const showNotification = (
     return null;
   }
 
-  // Check if permission is granted
-  if (Notification.permission !== 'granted') {
-    console.warn('Notification permission not granted:', Notification.permission);
+  // Safely get Notification API
+  const NotificationAPI = (window as any).Notification;
+  if (!NotificationAPI || typeof NotificationAPI === 'undefined') {
+    console.error('Notification constructor is undefined!');
     return null;
   }
 
-  // Double-check Notification constructor is available
-  if (typeof Notification === 'undefined') {
-    console.error('Notification constructor is undefined!');
+  // Check if permission is granted
+  if (NotificationAPI.permission !== 'granted') {
+    console.warn('Notification permission not granted:', NotificationAPI.permission);
     return null;
   }
 
@@ -126,7 +134,7 @@ export const showNotification = (
           console.log('Mobile Strategy 1: Attempting notification with body only');
           console.log('Title:', title);
           console.log('Body:', options.body);
-          const notification = new Notification(title, { body: options.body });
+          const notification = new NotificationAPI(title, { body: options.body });
           console.log('✅ Mobile notification created successfully with body only');
           setupNotificationHandlers(notification, isMobile);
           return notification;
@@ -140,7 +148,7 @@ export const showNotification = (
       try {
         console.log('Mobile Strategy 2: Attempting notification with title only (no options)');
         console.log('Title:', title);
-        const titleOnlyNotification = new Notification(title);
+        const titleOnlyNotification = new NotificationAPI(title);
         console.log('✅ Mobile notification created successfully with title only');
         setupNotificationHandlers(titleOnlyNotification, isMobile);
         return titleOnlyNotification;
@@ -153,7 +161,7 @@ export const showNotification = (
         // Additional diagnostics
         console.error('Diagnostics:');
         console.error('- Notification constructor type:', typeof Notification);
-        console.error('- Notification.permission:', Notification.permission);
+        console.error('- Notification.permission:', NotificationAPI.permission);
         console.error('- window.isSecureContext:', window.isSecureContext);
         console.error('- User Agent:', navigator.userAgent);
         
@@ -171,7 +179,7 @@ export const showNotification = (
       };
       
       console.log('Desktop: Creating notification with full options:', notificationOptions);
-      const notification = new Notification(title, notificationOptions);
+      const notification = new NotificationAPI(title, notificationOptions);
       setupNotificationHandlers(notification, isMobile);
       return notification;
     }
@@ -224,7 +232,7 @@ if (typeof document !== 'undefined') {
       if (queued) {
         // Small delay to ensure page is fully visible
         setTimeout(() => {
-          showNotificationDirectly(queued.title, { body: queued.body }, queued.orderNumber);
+          showNotificationDirectly(queued.title, { body: queued.body });
         }, 500);
       }
     }
@@ -234,7 +242,19 @@ if (typeof document !== 'undefined') {
 /**
  * Show notification directly (internal function)
  */
-function showNotificationDirectly(title: string, options: NotificationOptions, orderNumber?: string) {
+function showNotificationDirectly(title: string, options: NotificationOptions) {
+  // Safely get Notification API
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    console.warn('Notification API not available');
+    return null;
+  }
+  
+  const NotificationAPI = (window as any).Notification;
+  if (!NotificationAPI) {
+    console.warn('Notification constructor not available');
+    return null;
+  }
+  
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
   try {
@@ -243,7 +263,7 @@ function showNotificationDirectly(title: string, options: NotificationOptions, o
       if (options.body && options.body.trim().length > 0) {
         try {
           console.log('Mobile: Attempting notification with body only');
-          const notification = new Notification(title, { body: options.body });
+          const notification = new NotificationAPI(title, { body: options.body });
           console.log('✅ Mobile notification created with body only');
           setupNotificationHandlers(notification, isMobile);
           return notification;
@@ -255,7 +275,7 @@ function showNotificationDirectly(title: string, options: NotificationOptions, o
       // Try title only
       try {
         console.log('Mobile: Attempting notification with title only');
-        const titleOnlyNotification = new Notification(title);
+        const titleOnlyNotification = new NotificationAPI(title);
         console.log('✅ Mobile notification created with title only');
         setupNotificationHandlers(titleOnlyNotification, isMobile);
         return titleOnlyNotification;
@@ -265,7 +285,7 @@ function showNotificationDirectly(title: string, options: NotificationOptions, o
       }
     } else {
       // Desktop: Use full options
-      const notification = new Notification(title, options);
+      const notification = new NotificationAPI(title, options);
       setupNotificationHandlers(notification, isMobile);
       return notification;
     }
@@ -306,7 +326,6 @@ export const notifyNewOrder = async (orderNumber?: string) => {
   
   console.log('=== NOTIFICATION DEBUG ===');
   console.log('notifyNewOrder called with orderNumber:', orderNumber);
-  console.log('Notification permission:', Notification.permission);
   console.log('Service Worker available:', 'serviceWorker' in navigator);
   console.log('Service Worker controller:', navigator.serviceWorker?.controller ? 'Yes' : 'No');
   console.log('Is iOS:', isIOS());
@@ -316,7 +335,7 @@ export const notifyNewOrder = async (orderNumber?: string) => {
   console.log('Page hidden:', document.hidden);
   
   // Check if browser supports notifications
-  if (!('Notification' in window)) {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
     const errorMsg = 'Notifications not supported: Browser does not support Notification API';
     console.error(errorMsg);
     if (isMobile) {
@@ -325,6 +344,15 @@ export const notifyNewOrder = async (orderNumber?: string) => {
     }
     return null;
   }
+  
+  // Safely get Notification API
+  const NotificationAPI = (window as any).Notification;
+  if (!NotificationAPI) {
+    console.warn('Notification API not available');
+    return null;
+  }
+  
+  console.log('Notification permission:', NotificationAPI.permission);
   
   // iOS-specific check - iOS requires PWA for notifications
   if (isIOS() && !isPWA()) {
@@ -336,8 +364,8 @@ export const notifyNewOrder = async (orderNumber?: string) => {
   }
   
   // Check permission
-  if (Notification.permission !== 'granted') {
-    const permissionStatus = Notification.permission;
+  if (NotificationAPI.permission !== 'granted') {
+    const permissionStatus = NotificationAPI.permission;
     console.warn('Notification permission not granted:', permissionStatus);
     
     if (permissionStatus === 'default') {
@@ -405,7 +433,7 @@ export const notifyNewOrder = async (orderNumber?: string) => {
     }
 
     console.log('Attempting to show notification with options:', notificationOptions);
-    const result = showNotificationDirectly(title, notificationOptions, orderNumber);
+    const result = showNotificationDirectly(title, notificationOptions);
     
     if (!result) {
       console.warn('Regular notification also failed');
@@ -418,7 +446,6 @@ export const notifyNewOrder = async (orderNumber?: string) => {
     
     return result;
   } catch (error) {
-    const errorDetails = error instanceof Error ? error.message : String(error);
     console.error('❌ Error showing notification:', error);
     
     // Final fallback: alert
