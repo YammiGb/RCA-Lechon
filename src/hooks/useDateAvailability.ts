@@ -44,7 +44,9 @@ export const useDateAvailability = () => {
         .maybeSingle();
 
       if (fetchError) {
-        throw fetchError;
+        // If table doesn't exist or other error, return null (no restrictions)
+        console.warn('Error fetching availability for date:', fetchError);
+        return null;
       }
 
       // If no data found, return null (meaning no restrictions)
@@ -55,6 +57,7 @@ export const useDateAvailability = () => {
       return data.available_item_ids || [];
     } catch (err) {
       console.error('Error fetching availability for date:', err);
+      // Return null on any error to allow checkout to proceed
       return null;
     }
   };
