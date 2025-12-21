@@ -368,6 +368,8 @@ ${paymentInfo}`;
 
   const [showInstructionModal, setShowInstructionModal] = useState(false);
   const [pendingMessengerUrl, setPendingMessengerUrl] = useState<string | null>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [copiedOrderDetails, setCopiedOrderDetails] = useState<string>('');
 
   const handlePlaceOrder = async () => {
     if (orderSaved) {
@@ -383,6 +385,9 @@ ${paymentInfo}`;
 
       // Generate order details and copy to clipboard
       const orderDetails = generateOrderDetails(orderNumber);
+      
+      // Store order details for receipt view
+      setCopiedOrderDetails(orderDetails);
       
       // Copy to clipboard
       try {
@@ -426,6 +431,8 @@ ${paymentInfo}`;
       window.open(pendingMessengerUrl, '_blank');
       setShowInstructionModal(false);
       setPendingMessengerUrl(null);
+      // Show receipt view after closing modal
+      setShowReceipt(true);
     }
   };
 
