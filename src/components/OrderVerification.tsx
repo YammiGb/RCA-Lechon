@@ -658,7 +658,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       parts.push(''); // Empty line after date/time
     }
     
-    // Address section - all together (address, landmark, city) without empty lines between them
+    // Address lines (keep original case, no empty lines between them)
     if (order.address) {
       parts.push(order.address);
     }
@@ -668,30 +668,28 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       parts.push(order.landmark);
     }
     
-    // City (keep original case)
+    // Empty line after address/landmark section
+    parts.push('');
+    
+    // City (keep original case, on its own line)
     if (order.city) {
       parts.push(order.city);
+      parts.push(''); // Empty line after city
     }
-    
-    // Empty line after address section
-    parts.push('');
     
     // Customer name
     parts.push(order.customer_name);
+    parts.push(''); // Empty line after customer name
     
-    // Empty line after customer name
-    parts.push('');
-    
-    // Contact numbers (formatted with dashes, one per line)
+    // Contact numbers (formatted with dashes, each on its own line with empty line after)
     parts.push(formatContactNumber(order.contact_number));
+    parts.push(''); // Empty line after first contact number
     if (order.contact_number2) {
       parts.push(formatContactNumber(order.contact_number2));
+      parts.push(''); // Empty line after second contact number
     }
     
-    // Empty line after contact numbers
-    parts.push('');
-    
-    // Items: price with commas first, then name
+    // Items: price with commas first, then name (all items together, no empty lines between)
     if (order.order_items && order.order_items.length > 0) {
       order.order_items.forEach(item => {
         const itemPrice = Math.round(item.subtotal);
