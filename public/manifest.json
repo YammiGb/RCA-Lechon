@@ -1,0 +1,21 @@
+{
+  "name": "RCA Lechon Belly & Bilao",
+  "short_name": "RCA Lechon",
+  "description": "Authentic Filipino Lechon - Order delicious lechon belly and bilao",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8F8F7",
+  "theme_color": "#2D7659",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ],
+  "scope": "/",
+  "categories": ["food", "restaurant", "ordering"]
+}
+
