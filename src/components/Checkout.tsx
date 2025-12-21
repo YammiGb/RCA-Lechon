@@ -19,6 +19,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const { siteSettings } = useSiteSettings();
   const { createOrder } = useOrders();
   const { getAvailabilityForDate } = useDateAvailability();
+  const getAvailabilityForDateRef = useRef(getAvailabilityForDate);
   const [step, setStep] = useState<'details' | 'payment'>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSaved, setOrderSaved] = useState(false);
@@ -93,6 +94,18 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const isDeliveryEnabled = siteSettings?.delivery_enabled === 'true';
 
   const handleProceedToPayment = () => {
+    // Prevent proceeding if there are unavailable items
+    if (unavailableItems.length > 0) {
+      alert(`Cannot proceed: Some items are not available on the selected date:\n\n${unavailableItems.join('\n')}\n\nPlease remove these items or select a different date.`);
+      return;
+    }
+    
+    // Double-check validation
+    if (!isDetailsValid) {
+      alert('Please fill in all required fields before proceeding.');
+      return;
+    }
+    
     setStep('payment');
   };
 
@@ -494,9 +507,26 @@ ${paymentInfo}`;
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const lastCheckedRef = useRef<string>(''); // Track last checked date+items combination
 
+  // Keep ref updated with latest function
+  React.useEffect(() => {
+    getAvailabilityForDateRef.current = getAvailabilityForDate;
+  }, [getAvailabilityForDate]);
+
   const handlePlaceOrder = async () => {
     if (orderSaved) {
       alert('This order has already been saved. Please do not submit duplicate orders.');
+      return;
+    }
+
+    // Final validation check - prevent order if unavailable items exist
+    if (unavailableItems.length > 0) {
+      alert(`Cannot place order: Some items are not available on the selected date:\n\n${unavailableItems.join('\n')}\n\nPlease remove these items or select a different date.`);
+      return;
+    }
+
+    // Double-check validation
+    if (!isDetailsValid) {
+      alert('Please fill in all required fields before placing the order.');
       return;
     }
 
