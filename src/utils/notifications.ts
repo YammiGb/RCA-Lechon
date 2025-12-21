@@ -132,24 +132,43 @@ export const notifyNewOrder = (orderNumber?: string) => {
   console.log('Notification permission:', Notification.permission);
   console.log('Notification supported:', 'Notification' in window);
   
+  // Check if notifications are supported
+  if (!isNotificationSupported()) {
+    console.warn('Notifications not supported on this platform');
+    return null;
+  }
+  
+  // Check permission
+  if (Notification.permission !== 'granted') {
+    console.warn('Notification permission not granted:', Notification.permission);
+    return null;
+  }
+  
   const title = 'New Order Received!';
   const body = orderNumber 
     ? `Order #${orderNumber} has been placed`
     : 'A new order has been placed';
 
-  const result = showNotification(title, {
-    body,
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    tag: 'new-order',
-  });
-  
-  if (!result) {
-    console.warn('Failed to show notification. Permission:', Notification.permission);
-  } else {
-    console.log('Notification shown successfully');
+  try {
+    const result = showNotification(title, {
+      body,
+      icon: '/logo.jpg', // Use logo.jpg instead of favicon
+      badge: '/logo.jpg',
+      tag: 'new-order',
+      requireInteraction: false,
+      silent: false,
+    });
+    
+    if (!result) {
+      console.warn('Failed to show notification. Permission:', Notification.permission);
+    } else {
+      console.log('Notification shown successfully');
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error showing notification:', error);
+    return null;
   }
-  
-  return result;
 };
 

@@ -22,7 +22,18 @@ if (import.meta.env.DEV) {
   });
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  },
+  global: {
+    headers: {
+      'x-client-info': 'just-cafe-web'
+    }
+  }
+});
 
 export type Database = {
   public: {

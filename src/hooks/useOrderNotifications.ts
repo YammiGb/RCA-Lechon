@@ -51,14 +51,18 @@ export const useOrderNotifications = () => {
     try {
       if (!lastCheckTime) return;
 
+      // Use a more reliable query with error handling
       const { data: newOrders, error } = await supabase
         .from('orders')
-        .select('id, created_at')
+        .select('id, created_at, status')
         .gte('created_at', lastCheckTime.toISOString())
-        .order('created_at', { ascending: false });
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(100); // Limit to prevent large queries
 
       if (error) {
         console.error('Error checking new orders:', error);
+        // Don't throw, just log - real-time subscription will handle new orders
         return;
       }
 
@@ -67,13 +71,27 @@ export const useOrderNotifications = () => {
         const unviewedOrders = newOrders.filter(
           order => !viewedOrderIds.has(order.id)
         );
-        setNewOrderCount(unviewedOrders.length);
-        // Note: Notifications are handled by the real-time subscription for immediate alerts
+        
+        if (unviewedOrders.length > 0) {
+          setNewOrderCount(unviewedOrders.length);
+          
+          // Fallback: If real-time subscription failed, show notifications via polling
+          // Only show notification for the most recent order to avoid spam
+          const mostRecentOrder = unviewedOrders[0];
+          if (mostRecentOrder && Notification.permission === 'granted') {
+            const orderNumber = mostRecentOrder.id.substring(0, 8).toUpperCase();
+            console.log('Fallback: Showing notification for order via polling:', orderNumber);
+            notifyNewOrder(orderNumber);
+          }
+        } else {
+          setNewOrderCount(0);
+        }
       } else {
         setNewOrderCount(0);
       }
     } catch (err) {
       console.error('Error in checkNewOrders:', err);
+      // Silently fail - real-time subscription is the primary mechanism
     }
   }, [lastCheckTime, viewedOrderIds]);
 
@@ -81,49 +99,104 @@ export const useOrderNotifications = () => {
   useEffect(() => {
     console.log('Setting up real-time subscription for orders');
     
-    const channel = supabase
-      .channel('orders-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'orders',
-        },
-        (payload) => {
-          console.log('New order detected via real-time subscription:', payload);
-          const newOrder = payload.new as Order;
-          console.log('New order ID:', newOrder.id);
-          console.log('Is order already viewed?', viewedOrderIds.has(newOrder.id));
-          
-          // Check if this order is new (not viewed)
-          if (!viewedOrderIds.has(newOrder.id)) {
-            console.log('Processing new order notification');
-            setNewOrderCount(prev => prev + 1);
-            
-            // Show browser notification for new order
-            const orderNumber = newOrder.id.substring(0, 8);
-            console.log('Calling notifyNewOrder with orderNumber:', orderNumber);
-            notifyNewOrder(orderNumber);
-          } else {
-            console.log('Order already viewed, skipping notification');
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let subscriptionTimeout: NodeJS.Timeout | null = null;
+    
+    const setupSubscription = () => {
+      // Clean up existing subscription if any
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+      
+      channel = supabase
+        .channel('orders-changes', {
+          config: {
+            broadcast: { self: true },
+            presence: { key: 'admin' }
           }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Subscription status:', status);
-      });
+        })
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'orders'
+          },
+          (payload) => {
+            console.log('New order detected via real-time subscription:', payload);
+            const newOrder = payload.new as Order;
+            console.log('New order ID:', newOrder.id);
+            console.log('New order status:', newOrder.status);
+            console.log('Is order already viewed?', viewedOrderIds.has(newOrder.id));
+            
+            // Only process pending orders
+            if (newOrder.status !== 'pending') {
+              console.log('Order is not pending, skipping notification');
+              return;
+            }
+            
+            // Check if this order is new (not viewed)
+            if (!viewedOrderIds.has(newOrder.id)) {
+              console.log('Processing new order notification');
+              setNewOrderCount(prev => prev + 1);
+              
+              // Show browser notification for new order
+              const orderNumber = newOrder.id.substring(0, 8).toUpperCase();
+              console.log('Calling notifyNewOrder with orderNumber:', orderNumber);
+              
+              // Check notification permission before showing
+              if (Notification.permission === 'granted') {
+                notifyNewOrder(orderNumber);
+              } else {
+                console.warn('Notification permission not granted, skipping notification');
+              }
+            } else {
+              console.log('Order already viewed, skipping notification');
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('Subscription status:', status);
+          
+          // If subscription fails or closes, try to reconnect after a delay
+          if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
+            console.warn('Subscription error/closed, will retry in 5 seconds...');
+            if (subscriptionTimeout) {
+              clearTimeout(subscriptionTimeout);
+            }
+            subscriptionTimeout = setTimeout(() => {
+              console.log('Retrying subscription...');
+              setupSubscription();
+            }, 5000);
+          } else if (status === 'SUBSCRIBED') {
+            console.log('Successfully subscribed to orders changes');
+            // Clear any pending retry
+            if (subscriptionTimeout) {
+              clearTimeout(subscriptionTimeout);
+              subscriptionTimeout = null;
+            }
+          }
+        });
+    };
+    
+    // Initial subscription setup
+    setupSubscription();
 
     return () => {
       console.log('Cleaning up subscription');
-      supabase.removeChannel(channel);
+      if (subscriptionTimeout) {
+        clearTimeout(subscriptionTimeout);
+      }
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [viewedOrderIds]);
 
-  // Periodically check for new orders (every 30 seconds)
+  // Periodically check for new orders (every 10 seconds as fallback)
   useEffect(() => {
     checkNewOrders();
-    const interval = setInterval(checkNewOrders, 30000);
+    const interval = setInterval(checkNewOrders, 10000); // Check every 10 seconds
     return () => clearInterval(interval);
   }, [checkNewOrders]);
 
