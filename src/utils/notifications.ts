@@ -93,7 +93,19 @@ export const showNotification = (
 
   // Check if permission is granted
   if (Notification.permission !== 'granted') {
-    console.warn('Notification permission not granted');
+    console.warn('Notification permission not granted:', Notification.permission);
+    return null;
+  }
+
+  // Double-check Notification constructor is available
+  if (typeof Notification === 'undefined') {
+    console.error('Notification constructor is undefined!');
+    return null;
+  }
+
+  // Check if we're in a secure context (required for notifications)
+  if (!window.isSecureContext) {
+    console.error('Not in secure context (HTTPS required for notifications)');
     return null;
   }
 
@@ -104,36 +116,48 @@ export const showNotification = (
     let notificationOptions: NotificationOptions = {};
     
     if (isMobile) {
-      // Mobile: Use only the most basic, widely-supported options
-      notificationOptions = {
-        body: options?.body || '',
-        tag: options?.tag || 'new-order',
-        // Don't include icon, badge, or requireInteraction on mobile - they often cause failures
-      };
+      // Mobile: Try multiple fallback strategies
+      // Some mobile browsers reject ANY options, even empty ones
       
-      console.log('Mobile: Creating notification with minimal options:', notificationOptions);
-      
-      // Try with minimal options first
-      try {
-        const notification = new Notification(title, notificationOptions);
-        console.log('✅ Mobile notification created successfully with minimal options');
-        
-        // Set up handlers
-        setupNotificationHandlers(notification, isMobile);
-        return notification;
-      } catch (minimalError) {
-        console.warn('Minimal options failed, trying title-only:', minimalError);
-        
-        // Last resort: title only
+      // Strategy 1: Try with just body (no tag, no other options)
+      // Only if body is not empty
+      if (options?.body && options.body.trim().length > 0) {
         try {
-          const titleOnlyNotification = new Notification(title);
-          console.log('✅ Mobile notification created with title only');
-          setupNotificationHandlers(titleOnlyNotification, isMobile);
-          return titleOnlyNotification;
-        } catch (titleOnlyError) {
-          console.error('❌ Even title-only notification failed:', titleOnlyError);
-          throw titleOnlyError; // Re-throw to trigger fallback alert
+          console.log('Mobile Strategy 1: Attempting notification with body only');
+          console.log('Title:', title);
+          console.log('Body:', options.body);
+          const notification = new Notification(title, { body: options.body });
+          console.log('✅ Mobile notification created successfully with body only');
+          setupNotificationHandlers(notification, isMobile);
+          return notification;
+        } catch (bodyError) {
+          console.warn('❌ Strategy 1 (body only) failed:', bodyError);
+          console.warn('Error message:', bodyError instanceof Error ? bodyError.message : String(bodyError));
         }
+      }
+      
+      // Strategy 2: Try title only (no options at all)
+      try {
+        console.log('Mobile Strategy 2: Attempting notification with title only (no options)');
+        console.log('Title:', title);
+        const titleOnlyNotification = new Notification(title);
+        console.log('✅ Mobile notification created successfully with title only');
+        setupNotificationHandlers(titleOnlyNotification, isMobile);
+        return titleOnlyNotification;
+      } catch (titleOnlyError) {
+        console.error('❌ Strategy 2 (title only) also failed:', titleOnlyError);
+        console.error('Error type:', titleOnlyError instanceof Error ? titleOnlyError.constructor.name : typeof titleOnlyError);
+        console.error('Error message:', titleOnlyError instanceof Error ? titleOnlyError.message : String(titleOnlyError));
+        console.error('Error name:', titleOnlyError instanceof Error ? titleOnlyError.name : 'Unknown');
+        
+        // Additional diagnostics
+        console.error('Diagnostics:');
+        console.error('- Notification constructor type:', typeof Notification);
+        console.error('- Notification.permission:', Notification.permission);
+        console.error('- window.isSecureContext:', window.isSecureContext);
+        console.error('- User Agent:', navigator.userAgent);
+        
+        throw titleOnlyError; // Re-throw to trigger fallback alert
       }
     } else {
       // Desktop: Can use more options
