@@ -16,7 +16,12 @@ import DateAvailabilityManager from './DateAvailabilityManager';
 
 const AdminDashboard: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('beracah_admin_auth') === 'true';
+    try {
+      return localStorage.getItem('beracah_admin_auth') === 'true';
+    } catch (error) {
+      console.error('Error accessing localStorage:', error);
+      return false;
+    }
   });
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -240,9 +245,14 @@ const AdminDashboard: React.FC = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === 'RCA@Admin!2025') {
-      setIsAuthenticated(true);
-      localStorage.setItem('beracah_admin_auth', 'true');
-      setLoginError('');
+      try {
+        setIsAuthenticated(true);
+        localStorage.setItem('beracah_admin_auth', 'true');
+        setLoginError('');
+      } catch (error) {
+        console.error('Error saving to localStorage:', error);
+        setLoginError('Failed to save authentication. Please try again.');
+      }
     } else {
       setLoginError('Invalid password');
     }
@@ -250,7 +260,11 @@ const AdminDashboard: React.FC = () => {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    localStorage.removeItem('beracah_admin_auth');
+    try {
+      localStorage.removeItem('beracah_admin_auth');
+    } catch (error) {
+      console.error('Error removing from localStorage:', error);
+    }
     setPassword('');
     setCurrentView('dashboard');
   };

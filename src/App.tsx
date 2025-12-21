@@ -8,6 +8,7 @@ import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 import FloatingCartButton from './components/FloatingCartButton';
 import AdminDashboard from './components/AdminDashboard';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useMenu } from './hooks/useMenu';
 
 function MainApp() {
@@ -83,12 +84,18 @@ function MainApp() {
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<MainApp />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-      </Routes>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <Routes>
+          <Route path="/" element={<MainApp />} />
+          <Route path="/admin" element={
+            <ErrorBoundary>
+              <AdminDashboard />
+            </ErrorBoundary>
+          } />
+        </Routes>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

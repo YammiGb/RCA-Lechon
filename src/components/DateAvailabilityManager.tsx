@@ -9,7 +9,7 @@ interface DateAvailabilityManagerProps {
 
 const DateAvailabilityManager: React.FC<DateAvailabilityManagerProps> = ({ onBack }) => {
   const { dateAvailabilities, loading, setAvailabilityForDate, deleteAvailabilityForDate, refetch } = useDateAvailability();
-  const { menuItems } = useMenu();
+  const { menuItems } = useMenu(); // Don't filter by date in admin - show all items
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split('T')[0];
