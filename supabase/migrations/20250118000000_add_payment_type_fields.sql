@@ -8,3 +8,7 @@ ADD COLUMN IF NOT EXISTS payment_type text CHECK (payment_type IN ('down-payment
 ALTER TABLE orders 
 ADD COLUMN IF NOT EXISTS down_payment_amount numeric(12,2);
 
+
+
+
+
