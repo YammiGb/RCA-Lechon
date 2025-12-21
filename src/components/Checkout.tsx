@@ -98,25 +98,30 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
 
   // Check item availability for selected date
   React.useEffect(() => {
+    let isMounted = true;
+    
     const checkAvailability = async () => {
       if (cartItems.length === 0) {
-        setUnavailableItems([]);
+        if (isMounted) setUnavailableItems([]);
         return;
       }
 
       const selectedDate = serviceType === 'pickup' ? pickupDate : deliveryDate;
       if (!selectedDate) {
-        setUnavailableItems([]);
+        if (isMounted) setUnavailableItems([]);
         return;
       }
 
       try {
-        setIsCheckingAvailability(true);
+        if (isMounted) setIsCheckingAvailability(true);
         const availableItemIds = await getAvailabilityForDate(selectedDate);
+        
+        if (!isMounted) return;
         
         // If null, no date availability is set, so all items are available
         if (availableItemIds === null) {
           setUnavailableItems([]);
+          setIsCheckingAvailability(false);
           return;
         }
 
@@ -133,13 +138,23 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
         setUnavailableItems(unavailable);
       } catch (error) {
         console.error('Error checking availability:', error);
-        setUnavailableItems([]);
+        if (isMounted) {
+          setUnavailableItems([]);
+        }
       } finally {
-        setIsCheckingAvailability(false);
+        if (isMounted) {
+          setIsCheckingAvailability(false);
+        }
       }
     };
 
-    checkAvailability();
+    // Debounce the check to avoid too many requests
+    const timeoutId = setTimeout(checkAvailability, 300);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [cartItems, serviceType, pickupDate, deliveryDate, getAvailabilityForDate]);
 
   // Generate order details message (reusable for both link and copy)
