@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Save, X, ArrowLeft, TrendingUp, Package, Users, Lock, FolderOpen, CreditCard, Settings, ShoppingBag, Star } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, ArrowLeft, TrendingUp, Package, Users, Lock, FolderOpen, CreditCard, Settings, ShoppingBag, Star, Calendar } from 'lucide-react';
 import { MenuItem, Variation, AddOn } from '../types';
 import { addOnCategories } from '../data/menuData';
 import { useMenu } from '../hooks/useMenu';
@@ -12,6 +12,7 @@ import CategoryManager from './CategoryManager';
 import PaymentMethodManager from './PaymentMethodManager';
 import SiteSettingsManager from './SiteSettingsManager';
 import OrderVerification from './OrderVerification';
+import DateAvailabilityManager from './DateAvailabilityManager';
 
 const AdminDashboard: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -23,7 +24,7 @@ const AdminDashboard: React.FC = () => {
   const { categories } = useCategories();
   const { siteSettings } = useSiteSettings();
   const { newOrderCount, markAllAsViewed } = useOrderNotifications();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings' | 'orders'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings' | 'orders' | 'date-availability'>('dashboard');
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -932,6 +933,11 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
+  // Date Availability View
+  if (currentView === 'date-availability') {
+    return <DateAvailabilityManager onBack={() => setCurrentView('dashboard')} />;
+  }
+
   // Orders Verification View
   if (currentView === 'orders') {
     const webhookUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEBHOOK_URL || '';
@@ -1132,6 +1138,13 @@ const AdminDashboard: React.FC = () => {
               >
                 <Settings className="h-5 w-5 text-gray-400" />
                 <span className="font-medium text-gray-900">Site Settings</span>
+              </button>
+              <button
+                onClick={() => setCurrentView('date-availability')}
+                className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
+              >
+                <Calendar className="h-5 w-5 text-gray-400" />
+                <span className="font-medium text-gray-900">Date Availability</span>
               </button>
             </div>
           </div>

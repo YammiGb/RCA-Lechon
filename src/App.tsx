@@ -12,7 +12,9 @@ import { useMenu } from './hooks/useMenu';
 
 function MainApp() {
   const cart = useCart();
-  const { menuItems } = useMenu();
+  // Get today's date in YYYY-MM-DD format for filtering menu items
+  const today = new Date().toISOString().split('T')[0];
+  const { menuItems } = useMenu(today);
   const [currentView, setCurrentView] = React.useState<'menu' | 'cart' | 'checkout'>('menu');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
 

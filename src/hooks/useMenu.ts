@@ -24,6 +24,20 @@ export const useMenu = () => {
 
       if (itemsError) throw itemsError;
 
+      // If filtering by date, get available items for that date
+      let availableItemIds: string[] | null = null;
+      if (filterByDate) {
+        const { data: dateAvailability } = await supabase
+          .from('date_availability')
+          .select('available_item_ids')
+          .eq('date', filterByDate)
+          .single();
+        
+        if (dateAvailability) {
+          availableItemIds = dateAvailability.available_item_ids || [];
+        }
+      }
+
       const formattedItems: MenuItem[] = items?.map(item => {
         // Calculate if discount is currently active
         const now = new Date();
@@ -37,6 +51,13 @@ export const useMenu = () => {
         // Calculate effective price
         const effectivePrice = isDiscountActive && item.discount_price ? item.discount_price : item.base_price;
 
+        // If filtering by date, check if item is available on that date
+        let isAvailable = item.available ?? true;
+        if (filterByDate && availableItemIds !== null) {
+          // If date availability is set, only show items in the available list
+          isAvailable = availableItemIds.includes(item.id);
+        }
+
         return {
           id: item.id,
           name: item.name,
@@ -44,7 +65,7 @@ export const useMenu = () => {
           basePrice: item.base_price,
           category: item.category,
           popular: item.popular,
-          available: item.available ?? true,
+          available: isAvailable,
           image: item.image_url || undefined,
           discountPrice: item.discount_price || undefined,
           discountStartDate: item.discount_start_date || undefined,
@@ -220,7 +241,7 @@ export const useMenu = () => {
 
   useEffect(() => {
     fetchMenuItems();
-  }, []);
+  }, [filterByDate]);
 
   return {
     menuItems,
