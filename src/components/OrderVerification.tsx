@@ -658,12 +658,12 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       parts.push(''); // Empty line after date/time
     }
     
-    // Address (keep original case)
+    // Address section - all together (address, landmark, city) without empty lines between them
     if (order.address) {
       parts.push(order.address);
     }
     
-    // Landmark (keep original case, before city)
+    // Landmark (keep original case)
     if (order.landmark) {
       parts.push(order.landmark);
     }
@@ -679,13 +679,16 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     // Customer name
     parts.push(order.customer_name);
     
+    // Empty line after customer name
+    parts.push('');
+    
     // Contact numbers (formatted with dashes, one per line)
     parts.push(formatContactNumber(order.contact_number));
     if (order.contact_number2) {
       parts.push(formatContactNumber(order.contact_number2));
     }
     
-    // Empty line after customer info
+    // Empty line after contact numbers
     parts.push('');
     
     // Items: price with commas first, then name
