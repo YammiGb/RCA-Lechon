@@ -6,6 +6,7 @@ import { useMenu } from '../hooks/useMenu';
 import { useCategories } from '../hooks/useCategories';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 import { useOrderNotifications } from '../hooks/useOrderNotifications';
+import { requestNotificationPermission, notifyNewOrder } from '../utils/notifications';
 import ImageUpload from './ImageUpload';
 import CategoryManager from './CategoryManager';
 import PaymentMethodManager from './PaymentMethodManager';
@@ -970,6 +971,21 @@ const AdminDashboard: React.FC = () => {
               <h1 className="text-2xl font-noto font-semibold text-black">RCA Admin</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={async () => {
+                  const granted = await requestNotificationPermission();
+                  if (granted) {
+                    notifyNewOrder('TEST123');
+                    alert('Notification permission granted! Test notification sent.');
+                  } else {
+                    alert('Notification permission not granted. Please check your browser settings.');
+                  }
+                }}
+                className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                title="Test notifications"
+              >
+                Test Notification
+              </button>
               <a
                 href="/"
                 className="text-gray-600 hover:text-black transition-colors duration-200"

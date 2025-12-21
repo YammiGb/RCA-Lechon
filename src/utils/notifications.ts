@@ -128,16 +128,28 @@ export const showNotification = (
  * Show notification for new order
  */
 export const notifyNewOrder = (orderNumber?: string) => {
+  console.log('notifyNewOrder called with orderNumber:', orderNumber);
+  console.log('Notification permission:', Notification.permission);
+  console.log('Notification supported:', 'Notification' in window);
+  
   const title = 'New Order Received!';
   const body = orderNumber 
     ? `Order #${orderNumber} has been placed`
     : 'A new order has been placed';
 
-  showNotification(title, {
+  const result = showNotification(title, {
     body,
     icon: '/favicon.ico',
     badge: '/favicon.ico',
     tag: 'new-order',
   });
+  
+  if (!result) {
+    console.warn('Failed to show notification. Permission:', Notification.permission);
+  } else {
+    console.log('Notification shown successfully');
+  }
+  
+  return result;
 };
 

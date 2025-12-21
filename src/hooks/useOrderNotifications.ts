@@ -33,10 +33,17 @@ export const useOrderNotifications = () => {
       localStorage.setItem(LAST_CHECK_KEY, now.toISOString());
     }
 
-    // Request notification permission on mount
-    requestNotificationPermission().catch(err => {
-      console.error('Error requesting notification permission:', err);
-    });
+    // Check notification permission status (don't request automatically - requires user interaction)
+    console.log('Notification permission status:', Notification.permission);
+    console.log('Notification API available:', 'Notification' in window);
+    
+    if (Notification.permission === 'granted') {
+      console.log('Notification permission already granted');
+    } else if (Notification.permission === 'default') {
+      console.log('Notification permission not yet requested. User needs to interact to grant permission.');
+    } else {
+      console.log('Notification permission denied by user');
+    }
   }, []);
 
   // Check for new orders
@@ -72,6 +79,8 @@ export const useOrderNotifications = () => {
 
   // Set up real-time subscription for new orders
   useEffect(() => {
+    console.log('Setting up real-time subscription for orders');
+    
     const channel = supabase
       .channel('orders-changes')
       .on(
@@ -82,20 +91,31 @@ export const useOrderNotifications = () => {
           table: 'orders',
         },
         (payload) => {
+          console.log('New order detected via real-time subscription:', payload);
           const newOrder = payload.new as Order;
+          console.log('New order ID:', newOrder.id);
+          console.log('Is order already viewed?', viewedOrderIds.has(newOrder.id));
+          
           // Check if this order is new (not viewed)
           if (!viewedOrderIds.has(newOrder.id)) {
+            console.log('Processing new order notification');
             setNewOrderCount(prev => prev + 1);
             
             // Show browser notification for new order
             const orderNumber = newOrder.id.substring(0, 8);
+            console.log('Calling notifyNewOrder with orderNumber:', orderNumber);
             notifyNewOrder(orderNumber);
+          } else {
+            console.log('Order already viewed, skipping notification');
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up subscription');
       supabase.removeChannel(channel);
     };
   }, [viewedOrderIds]);
