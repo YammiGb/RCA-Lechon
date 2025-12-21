@@ -147,12 +147,26 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
           return;
         }
 
+        // If empty array, no items are available for this date - block all
+        if (Array.isArray(availableItemIds) && availableItemIds.length === 0) {
+          const allUnavailable = cartItems.map(item => item.name);
+          setUnavailableItems(allUnavailable);
+          setIsCheckingAvailability(false);
+          return;
+        }
+
         // Extract original menu item IDs from cart items
         // Cart item IDs are in format: "menuItemId:::CART:::timestamp-random"
         const unavailable: string[] = [];
         cartItems.forEach(item => {
           const originalItemId = item.id.split(':::CART:::')[0];
-          if (!availableItemIds.includes(originalItemId)) {
+          // Check if the item ID (as string) is in the available list
+          // availableItemIds should be an array of UUID strings
+          const isAvailable = availableItemIds.some(availableId => {
+            const availableIdStr = String(availableId);
+            return availableIdStr === originalItemId || availableIdStr === originalItemId.trim();
+          });
+          if (!isAvailable) {
             unavailable.push(item.name);
           }
         });
