@@ -62,6 +62,28 @@ function showNotification(title, body, orderNumber) {
     });
 }
 
+// Handle fetch requests - always use network for navigation to ensure routing works
+self.addEventListener('fetch', (event) => {
+  // Only handle navigation requests (document requests)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          // If network fails, return cached index.html for SPA routing
+          return caches.match('/index.html');
+        })
+    );
+  }
+  // For all other requests (API, images, etc.), use network-first strategy
+  else {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match(event.request);
+      })
+    );
+  }
+});
+
 // Handle notification click
 self.addEventListener('notificationclick', (event) => {
   console.log('Notification clicked:', event.notification);
