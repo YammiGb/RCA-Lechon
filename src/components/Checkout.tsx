@@ -198,6 +198,11 @@ ${orderItemsText}
 
 ${paymentInfo}`;
 
+    // Add "FULLPAYMENT" at the end if payment type is full payment
+    if (paymentType === 'full-payment') {
+      orderDetails += '\n\nFULLPAYMENT';
+    }
+
     // Add order number at the beginning if provided
     if (orderNumber) {
       orderDetails = `Order #${orderNumber}\n\n${orderDetails}`;
