@@ -240,8 +240,8 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     };
   }, [orders]);
 
-  // Helper function to calculate days remaining for an order
-  const calculateDaysRemaining = (order: Order): number | null => {
+  // Helper function to calculate days remaining or days ago for an order
+  const calculateDaysRemaining = (order: Order): { days: number; isPast: boolean } | null => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -257,14 +257,14 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
 
     serviceDate.setHours(0, 0, 0, 0);
 
-    // Only calculate for future dates (today or later)
-    if (serviceDate.getTime() < today.getTime()) return null;
-
     // Calculate days difference
     const diffTime = serviceDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil(Math.abs(diffTime) / (1000 * 60 * 60 * 24));
 
-    return diffDays;
+    // Check if it's in the past
+    const isPast = serviceDate.getTime() < today.getTime();
+
+    return { days: diffDays, isPast };
   };
 
   // Apply filters to orders
@@ -751,7 +751,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
   const OrderCard = ({ order }: { order: Order }) => {
     const isProcessing = processingOrderId === order.id;
     const canSync = order.status === 'approved' && !order.synced_to_sheets && webhookUrl;
-    const daysRemaining = calculateDaysRemaining(order);
+    const daysInfo = calculateDaysRemaining(order);
 
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-4">
@@ -771,15 +771,23 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
               >
                 <Copy className="h-4 w-4" />
               </button>
-              {daysRemaining !== null && (
-                <div className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-lg border border-blue-200 text-xs font-medium flex-shrink-0">
+              {daysInfo !== null && (
+                <div className={`inline-flex items-center px-2 py-1 rounded-lg border text-xs font-medium flex-shrink-0 ${
+                  daysInfo.isPast 
+                    ? 'bg-gray-100 text-gray-700 border-gray-200' 
+                    : 'bg-blue-100 text-blue-800 border-blue-200'
+                }`}>
                   <Calendar className="h-3 w-3 mr-1" />
                   <span>
-                    {daysRemaining === 0 
+                    {daysInfo.days === 0 
                       ? 'Today' 
-                      : daysRemaining === 1 
+                      : daysInfo.isPast
+                      ? daysInfo.days === 1
+                        ? '1 day ago'
+                        : `${daysInfo.days} days ago`
+                      : daysInfo.days === 1 
                       ? '1 day remaining' 
-                      : `${daysRemaining} days remaining`}
+                      : `${daysInfo.days} days remaining`}
                   </span>
                 </div>
               )}
