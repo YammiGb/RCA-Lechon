@@ -204,6 +204,8 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
   const [selectedCity, setSelectedCity] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all'); // 'all', 'pending', 'approved', 'submitted'
+  const [sortByDateProximity, setSortByDateProximity] = useState<boolean>(false);
+  const [sortByDateReverse, setSortByDateReverse] = useState<boolean>(false);
   const [showFilterPanel, setShowFilterPanel] = useState<boolean>(false);
 
   // Extract unique cities from orders with counts
@@ -237,6 +239,33 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       submitted: submittedCount,
     };
   }, [orders]);
+
+  // Helper function to calculate days remaining for an order
+  const calculateDaysRemaining = (order: Order): number | null => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get the service date for this order
+    let serviceDate: Date | null = null;
+    if (order.service_type === 'pickup' && order.pickup_date) {
+      serviceDate = new Date(order.pickup_date);
+    } else if (order.service_type === 'delivery' && order.delivery_date) {
+      serviceDate = new Date(order.delivery_date);
+    }
+
+    if (!serviceDate) return null;
+
+    serviceDate.setHours(0, 0, 0, 0);
+
+    // Only calculate for future dates (today or later)
+    if (serviceDate.getTime() < today.getTime()) return null;
+
+    // Calculate days difference
+    const diffTime = serviceDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return diffDays;
+  };
 
   // Apply filters to orders
   const filteredOrders = useMemo(() => {
@@ -277,8 +306,102 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     }
     // 'all' means no filtering
 
+    // Sort by date proximity to today (closer dates first)
+    // Uses the delivery/pickup date chosen by the customer, not the order creation date
+    // Excludes orders where the delivery/pickup date has already passed
+    if (sortByDateProximity) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Helper function to get the service date chosen by the customer
+      const getServiceDate = (order: Order): Date | null => {
+        if (order.service_type === 'pickup' && order.pickup_date) {
+          return new Date(order.pickup_date);
+        } else if (order.service_type === 'delivery' && order.delivery_date) {
+          return new Date(order.delivery_date);
+        }
+        // Return null if no service date exists
+        return null;
+      };
+
+      // Filter out orders with past dates
+      filtered = filtered.filter(order => {
+        const serviceDate = getServiceDate(order);
+        if (!serviceDate) {
+          // If no service date, exclude the order
+          return false;
+        }
+        serviceDate.setHours(0, 0, 0, 0);
+        // Only include orders where the service date is today or in the future
+        return serviceDate.getTime() >= today.getTime();
+      });
+
+      // Sort by date proximity (closer dates first)
+      filtered.sort((a, b) => {
+        const dateA = getServiceDate(a)!;
+        const dateB = getServiceDate(b)!;
+        
+        dateA.setHours(0, 0, 0, 0);
+        dateB.setHours(0, 0, 0, 0);
+
+        // Calculate absolute difference from today
+        const diffA = Math.abs(dateA.getTime() - today.getTime());
+        const diffB = Math.abs(dateB.getTime() - today.getTime());
+
+        // Sort by proximity (smaller difference = closer to today = appears first)
+        return diffA - diffB;
+      });
+    }
+
+    // Sort by date reverse (longer dates first, closer dates at bottom)
+    // Uses the delivery/pickup date chosen by the customer, not the order creation date
+    // Excludes orders where the delivery/pickup date has already passed
+    if (sortByDateReverse) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Helper function to get the service date chosen by the customer
+      const getServiceDate = (order: Order): Date | null => {
+        if (order.service_type === 'pickup' && order.pickup_date) {
+          return new Date(order.pickup_date);
+        } else if (order.service_type === 'delivery' && order.delivery_date) {
+          return new Date(order.delivery_date);
+        }
+        // Return null if no service date exists
+        return null;
+      };
+
+      // Filter out orders with past dates
+      filtered = filtered.filter(order => {
+        const serviceDate = getServiceDate(order);
+        if (!serviceDate) {
+          // If no service date, exclude the order
+          return false;
+        }
+        serviceDate.setHours(0, 0, 0, 0);
+        // Only include orders where the service date is today or in the future
+        return serviceDate.getTime() >= today.getTime();
+      });
+
+      // Sort by date reverse (longer dates first, closer dates at bottom)
+      filtered.sort((a, b) => {
+        const dateA = getServiceDate(a)!;
+        const dateB = getServiceDate(b)!;
+        
+        dateA.setHours(0, 0, 0, 0);
+        dateB.setHours(0, 0, 0, 0);
+
+        // Calculate absolute difference from today
+        const diffA = Math.abs(dateA.getTime() - today.getTime());
+        const diffB = Math.abs(dateB.getTime() - today.getTime());
+
+        // Sort by reverse proximity (larger difference = further from today = appears first)
+        return diffB - diffA;
+      });
+    }
+
     return filtered;
-  }, [orders, searchTerm, selectedCity, selectedDate, statusFilter]);
+  }, [orders, searchTerm, selectedCity, selectedDate, statusFilter, sortByDateProximity, sortByDateReverse]);
 
   // Mark orders as viewed when component mounts or orders change
   useEffect(() => {
@@ -628,6 +751,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
   const OrderCard = ({ order }: { order: Order }) => {
     const isProcessing = processingOrderId === order.id;
     const canSync = order.status === 'approved' && !order.synced_to_sheets && webhookUrl;
+    const daysRemaining = calculateDaysRemaining(order);
 
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
@@ -647,6 +771,18 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
               >
                 <Copy className="h-4 w-4" />
               </button>
+              {daysRemaining !== null && (
+                <div className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-lg border border-blue-200 text-xs font-medium">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  <span>
+                    {daysRemaining === 0 
+                      ? 'Today' 
+                      : daysRemaining === 1 
+                      ? '1 day remaining' 
+                      : `${daysRemaining} days remaining`}
+                  </span>
+                </div>
+              )}
             </div>
             <p className="text-sm text-gray-500 mt-1">
               {formatDate(order.created_at)}
@@ -1061,6 +1197,46 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
               </select>
             </div>
 
+            {/* Sort by Date Proximity */}
+            <div className="flex items-center">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={sortByDateProximity}
+                  onChange={(e) => {
+                    setSortByDateProximity(e.target.checked);
+                    if (e.target.checked) {
+                      setSortByDateReverse(false); // Uncheck reverse if proximity is checked
+                    }
+                  }}
+                  className="w-4 h-4 text-rca-green border-gray-300 rounded focus:ring-rca-green focus:ring-2"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  Sort by Date (Closer to Today First)
+                </span>
+              </label>
+            </div>
+
+            {/* Sort by Date Reverse */}
+            <div className="flex items-center">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={sortByDateReverse}
+                  onChange={(e) => {
+                    setSortByDateReverse(e.target.checked);
+                    if (e.target.checked) {
+                      setSortByDateProximity(false); // Uncheck proximity if reverse is checked
+                    }
+                  }}
+                  className="w-4 h-4 text-rca-green border-gray-300 rounded focus:ring-rca-green focus:ring-2"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  Sort by Date (Longer First, Closer at Bottom)
+                </span>
+              </label>
+            </div>
+
             {/* Clear Filters */}
             <div className="flex items-end">
               <button
@@ -1069,6 +1245,8 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
                   setSelectedCity('all');
                   setSelectedDate('');
                   setStatusFilter('all');
+                  setSortByDateProximity(false);
+                  setSortByDateReverse(false);
                 }}
                 className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >

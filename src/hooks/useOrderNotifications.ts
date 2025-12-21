@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Order } from '../types';
+import { requestNotificationPermission, notifyNewOrder } from '../utils/notifications';
 
 const VIEWED_ORDERS_KEY = 'rca_viewed_orders';
 const LAST_CHECK_KEY = 'rca_last_order_check';
@@ -10,7 +11,7 @@ export const useOrderNotifications = () => {
   const [viewedOrderIds, setViewedOrderIds] = useState<Set<string>>(new Set());
   const [lastCheckTime, setLastCheckTime] = useState<Date | null>(null);
 
-  // Load viewed orders from localStorage
+  // Load viewed orders from localStorage and request notification permission
   useEffect(() => {
     const stored = localStorage.getItem(VIEWED_ORDERS_KEY);
     if (stored) {
@@ -31,6 +32,11 @@ export const useOrderNotifications = () => {
       setLastCheckTime(now);
       localStorage.setItem(LAST_CHECK_KEY, now.toISOString());
     }
+
+    // Request notification permission on mount
+    requestNotificationPermission().catch(err => {
+      console.error('Error requesting notification permission:', err);
+    });
   }, []);
 
   // Check for new orders
@@ -55,6 +61,7 @@ export const useOrderNotifications = () => {
           order => !viewedOrderIds.has(order.id)
         );
         setNewOrderCount(unviewedOrders.length);
+        // Note: Notifications are handled by the real-time subscription for immediate alerts
       } else {
         setNewOrderCount(0);
       }
@@ -79,6 +86,10 @@ export const useOrderNotifications = () => {
           // Check if this order is new (not viewed)
           if (!viewedOrderIds.has(newOrder.id)) {
             setNewOrderCount(prev => prev + 1);
+            
+            // Show browser notification for new order
+            const orderNumber = newOrder.id.substring(0, 8);
+            notifyNewOrder(orderNumber);
           }
         }
       )
