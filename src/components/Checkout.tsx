@@ -4,6 +4,7 @@ import { CartItem, PaymentMethod, ServiceType } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 import { useOrders } from '../hooks/useOrders';
+import { useDateAvailability } from '../hooks/useDateAvailability';
 
 interface CheckoutProps {
   cartItems: CartItem[];
@@ -17,6 +18,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const { paymentMethods } = usePaymentMethods();
   const { siteSettings } = useSiteSettings();
   const { createOrder } = useOrders();
+  const { getAvailabilityForDate } = useDateAvailability();
   const [step, setStep] = useState<'details' | 'payment'>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSaved, setOrderSaved] = useState(false);
@@ -377,6 +379,8 @@ ${paymentInfo}`;
   const [copiedOrderDetails, setCopiedOrderDetails] = useState<string>('');
   const [showDuplicateError, setShowDuplicateError] = useState(false);
   const [duplicateOrderNumber, setDuplicateOrderNumber] = useState<string | null>(null);
+  const [unavailableItems, setUnavailableItems] = useState<string[]>([]);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   const handlePlaceOrder = async () => {
     if (orderSaved) {
@@ -457,7 +461,8 @@ ${paymentInfo}`;
   const isDetailsValid = customerName && contactNumber && 
     (serviceType !== 'delivery' || (address && city && deliveryDate && deliveryTime)) && 
     (serviceType !== 'pickup' || (pickupDate && pickupTime)) &&
-    isDeliveryMinimumMet;
+    isDeliveryMinimumMet &&
+    unavailableItems.length === 0; // Items must be available for selected date
 
   if (step === 'details') {
     return (
@@ -740,17 +745,38 @@ ${paymentInfo}`;
                 </>
               )}
 
+              {/* Show unavailable items message */}
+              {unavailableItems.length > 0 && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm font-medium text-red-800 mb-2">
+                    ⚠️ Some items are not available on the selected date:
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                    {unavailableItems.map((itemName, index) => (
+                      <li key={index}>{itemName}</li>
+                    ))}
+                  </ul>
+                  <p className="text-sm text-red-600 mt-2">
+                    Please remove these items or select a different date to proceed.
+                  </p>
+                </div>
+              )}
+
               <div className="pb-4 sm:pb-0">
                 <button
                   onClick={handleProceedToPayment}
-                  disabled={!isDetailsValid}
+                  disabled={!isDetailsValid || isCheckingAvailability}
                   className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
-                    isDetailsValid
+                    isDetailsValid && !isCheckingAvailability
                       ? 'bg-rca-red text-white hover:bg-rca-red-dark hover:scale-[1.02]'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
                 >
-                  Proceed to Payment
+                  {isCheckingAvailability 
+                    ? 'Checking availability...' 
+                    : unavailableItems.length > 0 
+                      ? 'Item(s) not available on selected date' 
+                      : 'Proceed to Payment'}
                 </button>
               </div>
             </form>
