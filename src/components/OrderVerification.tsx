@@ -950,26 +950,26 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
           <div className="text-base sm:text-lg font-semibold text-gray-900">
             Total: <span className="text-green-600">{formatPrice(order.total)}</span>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-2 sm:space-y-0">
+          <div className="flex flex-row items-center gap-2 flex-wrap">
             {order.status === 'pending' && (
               <>
                 <button
                   onClick={() => handleRejectClick(order)}
                   disabled={isProcessing}
-                  className="px-4 py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
+                  className="px-3 sm:px-4 py-2 sm:py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
                 >
-                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <X className="h-4 w-4" />
                   <span>Reject</span>
                 </button>
                 <button
                   onClick={() => handleApprove(order)}
                   disabled={isProcessing}
-                  className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
+                  className="px-3 sm:px-4 py-2 sm:py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
                 >
                   {isProcessing ? (
-                    <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                    <RefreshCw className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Check className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <Check className="h-4 w-4" />
                   )}
                   <span>Approve</span>
                 </button>
@@ -979,32 +979,32 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
               <button
                 onClick={() => handleMarkAsFullyPaid(order)}
                 disabled={isProcessing}
-                className="px-4 py-2.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
+                className="px-3 sm:px-4 py-2 sm:py-2.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
               >
                 {isProcessing ? (
-                  <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                  <RefreshCw className="h-4 w-4 animate-spin" />
                 ) : (
-                  <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <CreditCard className="h-4 w-4" />
                 )}
                 <span>Submit</span>
               </button>
             )}
             {order.payment_type === 'full-payment' && order.status !== 'pending' && (
-              <span className="px-4 py-2.5 bg-purple-100 text-purple-700 rounded-lg flex items-center justify-center space-x-2 text-sm sm:text-base">
-                <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="px-3 sm:px-4 py-2 sm:py-2.5 bg-purple-100 text-purple-700 rounded-lg flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm">
+                <CreditCard className="h-4 w-4" />
                 <span>Submitted</span>
               </span>
             )}
             <button
               onClick={() => handleDeleteClick(order)}
               disabled={isProcessing}
-              className="px-4 py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
               title="Delete order"
             >
               {isProcessing ? (
-                <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                <RefreshCw className="h-4 w-4 animate-spin" />
               ) : (
-                <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                <Trash2 className="h-4 w-4" />
               )}
               <span>Delete</span>
             </button>
@@ -1012,18 +1012,19 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
               <button
                 onClick={() => handleSyncToSheets(order)}
                 disabled={isProcessing}
-                className="px-4 py-2.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
+                className="px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
               >
                 {isProcessing ? (
-                  <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                  <RefreshCw className="h-4 w-4 animate-spin" />
                 ) : (
-                  <ExternalLink className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <ExternalLink className="h-4 w-4" />
                 )}
-                <span>Sync to Sheets</span>
+                <span className="hidden sm:inline">Sync to Sheets</span>
+                <span className="sm:hidden">Sync</span>
               </button>
             )}
             {order.synced_to_sheets && (
-              <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs sm:text-sm flex items-center justify-center space-x-1">
+              <span className="px-2 sm:px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs flex items-center justify-center space-x-1">
                 <Check className="h-4 w-4" />
                 <span>Synced</span>
               </span>
