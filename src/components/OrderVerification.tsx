@@ -653,7 +653,10 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
       dateTimeStr = `${monthNames[deliveryDate.getMonth()]} ${deliveryDate.getDate()}, ${deliveryDate.getFullYear()}         ${displayHour}:${minutes.toString().padStart(2, '0')}${ampm}`;
     }
-    if (dateTimeStr) parts.push(dateTimeStr);
+    if (dateTimeStr) {
+      parts.push(dateTimeStr);
+      parts.push(''); // Empty line after date/time
+    }
     
     // Address (keep original case)
     if (order.address) {
@@ -670,7 +673,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       parts.push(order.city);
     }
     
-    // Empty line
+    // Empty line after address section
     parts.push('');
     
     // Customer name
@@ -682,7 +685,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       parts.push(formatContactNumber(order.contact_number2));
     }
     
-    // Empty line
+    // Empty line after customer info
     parts.push('');
     
     // Items: price with commas first, then name
@@ -692,6 +695,9 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
         parts.push(`${formatPrice(itemPrice)} ${item.name}`);
       });
     }
+    
+    // Empty line after items
+    parts.push('');
     
     // Payment info: total price and payment method
     const totalPrice = Math.round(order.total);
