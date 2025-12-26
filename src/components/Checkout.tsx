@@ -4,22 +4,25 @@ import { CartItem, PaymentMethod, ServiceType } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 import { useOrders } from '../hooks/useOrders';
-import { useDateAvailability } from '../hooks/useDateAvailability';
+import { useDateAvailability, DateAvailability } from '../hooks/useDateAvailability';
 
 interface CheckoutProps {
   cartItems: CartItem[];
   totalPrice: number;
   onBack: () => void;
+  dateAvailabilities?: DateAvailability[];
 }
 
 const MINIMUM_DELIVERY_AMOUNT = 150;
 
-const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) => {
+const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, dateAvailabilities = [] }) => {
   const { paymentMethods } = usePaymentMethods();
   const { siteSettings } = useSiteSettings();
-  const { createOrder } = useOrders();
-  const { getAvailabilityForDate } = useDateAvailability();
+  const { createOrder, fetchOrders } = useOrders();
+  const { getAvailabilityForDate, getDeliveryFeesForDate } = useDateAvailability();
   const getAvailabilityForDateRef = useRef(getAvailabilityForDate);
+  const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
   const [step, setStep] = useState<'details' | 'payment'>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSaved, setOrderSaved] = useState(false);
@@ -51,6 +54,70 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   const SHOP_ADDRESS = 'Gabi Road, Cordova, Lapu-Lapu City';
   const CITIES = ['Lapu-Lapu City', 'Cebu City', 'Mandaue City', 'Talisay', 'Minglanilla', 'Consolacion', 'Liloan'];
 
+  // Auto-set delivery/pickup date if cart items are from available date category
+  // Use a ref to track the last cart items hash to prevent unnecessary re-runs
+  const lastCartItemsHash = useRef<string>('');
+  
+  React.useEffect(() => {
+    if (cartItems.length === 0 || dateAvailabilities.length === 0) {
+      lastCartItemsHash.current = '';
+      return;
+    }
+
+    // Create a hash of cart item IDs to detect actual changes
+    const cartItemsHash = cartItems.map(item => {
+      const parts = item.id.split(':::CART:::');
+      return parts.length > 1 ? parts[0] : item.id.split('-')[0];
+    }).sort().join(',');
+    
+    // Skip if cart items haven't actually changed
+    if (lastCartItemsHash.current === cartItemsHash) {
+      return;
+    }
+    
+    lastCartItemsHash.current = cartItemsHash;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Find the first upcoming availability that matches cart items
+    const upcomingAvailabilities = dateAvailabilities
+      .filter(avail => {
+        const availDate = new Date(avail.date);
+        availDate.setHours(0, 0, 0, 0);
+        return availDate >= today && avail.available_item_ids && avail.available_item_ids.length > 0;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    for (const availability of upcomingAvailabilities) {
+      const availableItemIds = availability.available_item_ids || [];
+      
+      // Check if any cart items match this availability
+      const cartItemIds = cartItems.map(item => {
+        // Extract original menu item id from cart item id
+        const parts = item.id.split(':::CART:::');
+        return parts.length > 1 ? parts[0] : item.id.split('-')[0];
+      });
+
+      const hasMatchingItem = cartItemIds.some(cartItemId => {
+        const normalizedCartId = String(cartItemId).toLowerCase().trim();
+        return availableItemIds.some(availId => String(availId).toLowerCase().trim() === normalizedCartId);
+      });
+
+      if (hasMatchingItem) {
+        // Set the date to this availability date only if it's different
+        const availabilityDate = availability.date; // Format: YYYY-MM-DD
+        if (serviceType === 'delivery') {
+          setDeliveryDate(prevDate => prevDate !== availabilityDate ? availabilityDate : prevDate);
+        } else if (serviceType === 'pickup') {
+          setPickupDate(prevDate => prevDate !== availabilityDate ? availabilityDate : prevDate);
+        }
+        break; // Use the first matching availability
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartItems.length, dateAvailabilities.length, serviceType]);
+
   // Generate time slots with 30-minute intervals (9:00 AM to 7:30 PM)
   const generateTimeSlots = () => {
     const slots: string[] = [];
@@ -68,15 +135,50 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [step]);
 
+  // Fetch delivery fees for selected date
+  React.useEffect(() => {
+    const fetchFees = async () => {
+      if (serviceType === 'delivery' && deliveryDate) {
+        const fees = await getDeliveryFeesForDate(deliveryDate);
+        if (fees) {
+          setDeliveryFees(fees);
+          // Set delivery fee for current city
+          const fee = fees[city] || 0;
+          setDeliveryFee(fee);
+        } else {
+          setDeliveryFees({});
+          setDeliveryFee(0);
+        }
+      } else {
+        setDeliveryFees({});
+        setDeliveryFee(0);
+      }
+    };
+    fetchFees();
+  }, [serviceType, deliveryDate, city, getDeliveryFeesForDate]);
+
+  // Update delivery fee when city changes
+  React.useEffect(() => {
+    if (serviceType === 'delivery' && deliveryFees[city] !== undefined) {
+      setDeliveryFee(deliveryFees[city] || 0);
+    } else {
+      setDeliveryFee(0);
+    }
+  }, [city, deliveryFees, serviceType]);
+
   // If COD is selected for delivery, force down payment
   React.useEffect(() => {
     if (serviceType === 'delivery' && deliveryPaymentMethod === 'cod' && paymentType === 'full-payment') {
       setPaymentType('down-payment');
-      if (downPaymentAmount < 500) {
-        setDownPaymentAmount(500);
+      const minDownPayment = 500 + deliveryFee; // Include delivery fee in minimum
+      if (downPaymentAmount < minDownPayment) {
+        setDownPaymentAmount(minDownPayment);
       }
     }
-  }, [serviceType, deliveryPaymentMethod, paymentType, downPaymentAmount]);
+  }, [serviceType, deliveryPaymentMethod, paymentType, downPaymentAmount, deliveryFee]);
+
+  // Calculate total with delivery fee
+  const totalWithDeliveryFee = totalPrice + deliveryFee;
 
   // Use payment methods from database
   const effectivePaymentMethods = paymentMethods;
@@ -220,8 +322,55 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     };
   }, [cartItems, serviceType, pickupDate, deliveryDate]);
 
+  // Generate readable order ID format: 12m31d-1 (month + day + customer number for that day)
+  const generateReadableOrderId = async (orderId: string, orderCreatedAt: string): Promise<string> => {
+    const DEPLOYMENT_DATE = new Date();
+    DEPLOYMENT_DATE.setHours(0, 0, 0, 0);
+    
+    const orderDate = new Date(orderCreatedAt);
+    
+    // If order was created before deployment date, use old format
+    if (orderDate < DEPLOYMENT_DATE) {
+      return orderId.substring(0, 8);
+    }
+    
+    // For new orders, fetch all orders for that date to calculate customer number
+    try {
+      await fetchOrders();
+      // We need to fetch orders from Supabase directly to get all orders for the date
+      const { supabase } = await import('../lib/supabase');
+      const orderDateStr = orderDate.toISOString().split('T')[0];
+      const startOfDay = new Date(orderDateStr);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(orderDateStr);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      const { data: sameDayOrders } = await supabase
+        .from('orders')
+        .select('id, created_at')
+        .gte('created_at', startOfDay.toISOString())
+        .lte('created_at', endOfDay.toISOString())
+        .order('created_at', { ascending: true });
+      
+      if (!sameDayOrders || sameDayOrders.length === 0) {
+        // Fallback to old format if we can't fetch
+        return orderId.substring(0, 8);
+      }
+      
+      const month = orderDate.getMonth() + 1;
+      const day = orderDate.getDate();
+      const customerNumber = sameDayOrders.findIndex(o => o.id === orderId) + 1;
+      
+      return `${month}m${day}d-${customerNumber}`;
+    } catch (error) {
+      console.error('Error generating readable order ID:', error);
+      // Fallback to old format on error
+      return orderId.substring(0, 8);
+    }
+  };
+
   // Generate order details message (reusable for both link and copy)
-  const generateOrderDetails = (orderNumber?: string) => {
+  const generateOrderDetails = async (orderId: string, orderCreatedAt: string) => {
     const completeAddress = serviceType === 'delivery' ? `${address}` : SHOP_ADDRESS;
     const landmarkInfo = serviceType === 'delivery' ? landmark : '';
 
@@ -295,46 +444,94 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
       paymentMethodName = selectedPaymentMethod?.name || paymentMethod || 'GCash';
     }
     
-    // Format payment info
-    let paymentInfo: string;
+    // Build message with proper line breaks - each section on a new line
+    const parts: string[] = [];
+    const finalTotal = totalPrice + deliveryFee;
+    
+    // Add order number at the beginning (readable format)
+    if (orderId) {
+      const readableOrderId = await generateReadableOrderId(orderId, orderCreatedAt);
+      parts.push(`Order #${readableOrderId}`);
+      parts.push(''); // Empty line after order number
+    }
+    
+    // Date and time
+    parts.push(dateTimeDisplay);
+    parts.push(''); // Empty line after date/time
+    
+    // Address section
+    if (completeAddress) {
+      parts.push(completeAddress);
+      parts.push(''); // Empty line after address
+    }
+    if (landmarkInfo) {
+      parts.push(landmarkInfo);
+      parts.push(''); // Empty line after landmark
+    }
+    
+    // City
+    if (city) {
+      parts.push(city);
+      parts.push(''); // Empty line after city
+    }
+    
+    // Customer name
+    if (customerName) {
+      parts.push(customerName);
+      parts.push(''); // Empty line after customer name
+    }
+    
+    // Contact numbers
+    parts.push(formatContactNumber(contactNumber));
+    parts.push(''); // Empty line after first contact number
+    if (contactNumber2) {
+      parts.push(formatContactNumber(contactNumber2));
+      parts.push(''); // Empty line after second contact number
+    }
+    
+    // Order items - each item on its own line
+    const itemLines = orderItemsText.split('\n').filter(line => line.trim());
+    itemLines.forEach(line => {
+      parts.push(line);
+    });
+    parts.push(''); // Empty line after items
+    
+    // Payment info - build with proper formatting
     if (paymentType === 'down-payment') {
-      const remainingBalance = totalPrice - downPaymentAmount;
-      // Format: "2,900-1,450 DP" (no space before DP)
-      paymentInfo = `${formatPrice(totalPrice)}-${formatPrice(downPaymentAmount)} DP\n\n${formatPrice(remainingBalance)} Bal. ${paymentMethodName}`;
+      const remainingBalance = finalTotal - downPaymentAmount;
+      // Add items total
+      parts.push(formatPrice(totalPrice));
+      parts.push(''); // Empty line after items total
+      // Add delivery fee if applicable
+      if (serviceType === 'delivery' && deliveryFee > 0) {
+        parts.push(`${formatPrice(deliveryFee)} Delivery Fee`);
+        parts.push(''); // Empty line after delivery fee
+      }
+      // Add down payment line
+      parts.push(`${formatPrice(finalTotal)}-${formatPrice(downPaymentAmount)} DP`);
+      parts.push(''); // Empty line between down payment and remaining balance
+      // Add remaining balance
+      parts.push(`${formatPrice(remainingBalance)} Bal. ${paymentMethodName}`);
     } else {
       // Full payment format
-      paymentInfo = `${formatPrice(totalPrice)} ${paymentMethodName}`;
+      parts.push(formatPrice(totalPrice));
+      parts.push(''); // Empty line after items total
+      // Add delivery fee if applicable
+      if (serviceType === 'delivery' && deliveryFee > 0) {
+        parts.push(`${formatPrice(deliveryFee)} Delivery Fee`);
+        parts.push(''); // Empty line after delivery fee
+      }
+      // Add total with payment method
+      parts.push(`${formatPrice(finalTotal)} ${paymentMethodName}`);
     }
-
-    // Build message - keep original case for address, landmark, city, customer name
-    let orderDetails = `${dateTimeDisplay}
-
-${completeAddress}
-
-${landmarkInfo ? `${landmarkInfo}\n` : ''}
-
-${city}
-
-${customerName}
-
-${formatContactNumber(contactNumber)}
-${contactNumber2 ? `${formatContactNumber(contactNumber2)}\n` : ''}
-
-${orderItemsText}
-
-${paymentInfo}`;
-
+    
     // Add "FULLPAYMENT" at the end if payment type is full payment
     if (paymentType === 'full-payment') {
-      orderDetails += '\n\nFULLPAYMENT';
+      parts.push(''); // Empty line before FULLPAYMENT
+      parts.push('FULLPAYMENT');
     }
-
-    // Add order number at the beginning if provided
-    if (orderNumber) {
-      orderDetails = `Order #${orderNumber}\n\n${orderDetails}`;
-    }
-
-    return orderDetails;
+    
+    return parts.join('\n');
   };
 
   const handleCopyAccountNumber = async () => {
@@ -459,13 +656,11 @@ ${paymentInfo}`;
       paymentType: paymentType,
       downPaymentAmount: paymentType === 'down-payment' ? downPaymentAmount : undefined,
       notes: undefined, // Add notes field if needed
-      total: totalPrice,
+      total: totalWithDeliveryFee,
+      deliveryFee: serviceType === 'delivery' ? deliveryFee : undefined,
       items: cartItems,
       ipAddress,
     });
-
-    // Return order ID (first 8 characters)
-    const orderNumber = order.id.substring(0, 8);
 
     // Mark order as saved and store in sessionStorage
     setOrderSaved(true);
@@ -494,13 +689,11 @@ ${paymentInfo}`;
     const recentOrders = savedOrders.slice(-10);
     sessionStorage.setItem('savedOrders', JSON.stringify(recentOrders));
 
-    return orderNumber;
+    return order;
   };
 
-  const [showInstructionModal, setShowInstructionModal] = useState(false);
-  const [pendingMessengerUrl, setPendingMessengerUrl] = useState<string | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
-  const [copiedOrderDetails, setCopiedOrderDetails] = useState<string>('');
+  const [receiptOrderDetails, setReceiptOrderDetails] = useState<string>('');
   const [showDuplicateError, setShowDuplicateError] = useState(false);
   const [duplicateOrderNumber, setDuplicateOrderNumber] = useState<string | null>(null);
   const [unavailableItems, setUnavailableItems] = useState<string[]>([]);
@@ -533,40 +726,16 @@ ${paymentInfo}`;
     try {
       setIsSubmitting(true);
 
-      // Save order to database and get order number
-      const orderNumber = await saveOrderToDatabase();
+      // Save order to database and get order
+      const order = await saveOrderToDatabase();
 
-      // Generate order details and copy to clipboard
-      const orderDetails = generateOrderDetails(orderNumber);
+      // Generate order details for receipt (with readable order ID)
+      const orderDetails = await generateOrderDetails(order.id, order.created_at);
       
       // Store order details for receipt view
-      setCopiedOrderDetails(orderDetails);
+      setReceiptOrderDetails(orderDetails);
       
-      // Copy to clipboard
-      try {
-        await navigator.clipboard.writeText(orderDetails);
-      } catch (err) {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = orderDetails;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.select();
-        try {
-          document.execCommand('copy');
-        } catch (fallbackErr) {
-          console.error('Failed to copy:', fallbackErr);
-        }
-        document.body.removeChild(textArea);
-      }
-
-      // Prepare messenger URL
-      const encodedMessage = encodeURIComponent(orderDetails);
-      const messengerUrl = `https://m.me/RCALechonBellyAndBilao?text=${encodedMessage}`;
-      
-      // Show receipt first, then instruction modal
-      setPendingMessengerUrl(messengerUrl);
+      // Show receipt
       setShowReceipt(true);
     } catch (error: any) {
       console.error('Error placing order:', error);
@@ -579,23 +748,10 @@ ${paymentInfo}`;
     }
   };
 
-  const handleContinueToMessenger = () => {
-    if (pendingMessengerUrl) {
-      window.open(pendingMessengerUrl, '_blank');
-      setShowInstructionModal(false);
-      setPendingMessengerUrl(null);
-    }
-  };
-
   const handleCloseReceipt = () => {
     setShowReceipt(false);
-    // After closing receipt, show instruction modal
-    if (pendingMessengerUrl) {
-      setShowInstructionModal(true);
-    } else {
-      // If no messenger URL, just redirect to home
-      window.location.href = '/';
-    }
+    // Redirect to home after closing receipt
+    window.location.href = '/';
   };
 
   const isDeliveryMinimumMet = serviceType !== 'delivery' || totalPrice >= MINIMUM_DELIVERY_AMOUNT;
@@ -645,10 +801,16 @@ ${paymentInfo}`;
               ))}
             </div>
             
-            <div className="border-t border-rca-green/20 pt-4">
+            <div className="border-t border-rca-green/20 pt-4 space-y-2">
+              {serviceType === 'delivery' && deliveryFee > 0 && (
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>Delivery Fee:</span>
+                  <span>₱{deliveryFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-2xl font-playfair font-semibold text-rca-green">
                 <span>Total:</span>
-                <span className="text-rca-red">₱{totalPrice}</span>
+                <span className="text-rca-red">₱{totalWithDeliveryFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
             
@@ -832,9 +994,13 @@ ${paymentInfo}`;
                       className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
                       required
                     >
-                      {CITIES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
+                      {CITIES.map((c) => {
+                        const fee = deliveryFees[c] || 0;
+                        const feeText = fee > 0 ? ` (₱${fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : ' (Free)';
+                        return (
+                          <option key={c} value={c}>{c}{feeText}</option>
+                        );
+                      })}
                     </select>
                   </div>
                   
@@ -956,11 +1122,12 @@ ${paymentInfo}`;
                   type="button"
                   onClick={() => {
                     setDeliveryPaymentMethod('cod');
-                    // If COD is selected, force down payment and disable full payment
-                    setPaymentType('down-payment');
-                    if (downPaymentAmount < 500) {
-                      setDownPaymentAmount(500);
-                    }
+                  // If COD is selected, force down payment and disable full payment
+                  setPaymentType('down-payment');
+                  const minDownPayment = 500 + deliveryFee; // Include delivery fee in minimum
+                  if (downPaymentAmount < minDownPayment) {
+                    setDownPaymentAmount(minDownPayment);
+                  }
                   }}
                   className={`py-3 px-4 rounded-lg font-medium text-base transition-all duration-200 border-2 ${
                     deliveryPaymentMethod === 'cod'
@@ -985,7 +1152,7 @@ ${paymentInfo}`;
               {deliveryPaymentMethod === 'cod' && (
                 <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-sm text-yellow-800">
-                    <span className="font-medium">⚠️ Note:</span> Down payment is required for COD orders.
+                    <span className="font-medium">Note:</span> Down payment is required for COD orders.
                   </p>
                 </div>
               )}
@@ -1000,10 +1167,11 @@ ${paymentInfo}`;
                 type="button"
                 onClick={() => {
                   setPaymentType('down-payment');
-                  if (downPaymentAmount < 500) {
-                    setDownPaymentAmount(500);
-                  } else if (downPaymentAmount > totalPrice) {
-                    setDownPaymentAmount(totalPrice);
+                  const minDownPayment = 500 + deliveryFee; // Include delivery fee in minimum
+                  if (downPaymentAmount < minDownPayment) {
+                    setDownPaymentAmount(minDownPayment);
+                  } else if (downPaymentAmount > totalWithDeliveryFee) {
+                    setDownPaymentAmount(totalWithDeliveryFee);
                   }
                 }}
                 className={`p-4 rounded-lg border-2 transition-all duration-200 ${
@@ -1034,11 +1202,28 @@ ${paymentInfo}`;
               </button>
             </div>
 
+            {/* Delivery Fee Display */}
+            {serviceType === 'delivery' && deliveryFee > 0 && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-yellow-800">Delivery Fee:</span>
+                  <span className="text-sm font-semibold text-yellow-900">
+                    ₱{deliveryFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                {paymentType === 'down-payment' && (
+                  <p className="text-sm text-yellow-800 mt-1">
+                    <span className="font-medium">Note:</span> Delivery fee must be included in the down payment amount.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Down Payment Amount Input */}
             {paymentType === 'down-payment' && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-rca-green mb-2">
-                  Down Payment Amount * (Minimum ₱500)
+                  Down Payment Amount * (Minimum ₱{500 + deliveryFee})
                 </label>
                 <input
                   type="text"
@@ -1055,36 +1240,57 @@ ${paymentInfo}`;
                     }
                     
                     const numValue = Number(inputValue);
+                    const minDownPayment = 500 + deliveryFee; // Minimum includes delivery fee
                     
                     // Only cap at maximum, don't auto-set minimum while typing
-                    if (numValue > totalPrice) {
-                      setDownPaymentAmount(totalPrice);
+                    if (numValue > totalWithDeliveryFee) {
+                      setDownPaymentAmount(totalWithDeliveryFee);
                     } else {
                       setDownPaymentAmount(numValue);
                     }
                   }}
                   onBlur={() => {
-                    // Validate on blur: ensure minimum 500
-                    if (downPaymentAmount < 500 || downPaymentAmount === 0) {
-                      setDownPaymentAmount(500);
+                    // Validate on blur - ensure minimum (including delivery fee) is met
+                    const minDownPayment = 500 + deliveryFee;
+                    if (downPaymentAmount < minDownPayment || downPaymentAmount === 0) {
+                      setDownPaymentAmount(minDownPayment);
                     }
                   }}
                   className="w-full px-4 py-3 border border-rca-green/20 rounded-lg focus:ring-2 focus:ring-rca-red focus:border-rca-red transition-all duration-200 bg-rca-off-white"
-                  placeholder="Enter amount (minimum ₱500)"
+                  placeholder={`Enter amount (minimum ₱${500 + deliveryFee})`}
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Remaining balance: ₱{totalPrice - downPaymentAmount}
-                </p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-gray-600">
+                    Items total: ₱{totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  {serviceType === 'delivery' && deliveryFee > 0 && (
+                    <p className="text-xs text-gray-600">
+                      Delivery fee: ₱{deliveryFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-600">
+                    Total: ₱{totalWithDeliveryFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs font-medium text-rca-green mt-2">
+                    Remaining balance: ₱{(totalWithDeliveryFee - downPaymentAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
               </div>
             )}
 
             {/* Full Payment Display */}
             {paymentType === 'full-payment' && (
-              <div className="mb-4 p-4 bg-rca-green/5 rounded-lg border border-rca-green/20">
+              <div className="mb-4 p-4 bg-rca-green/5 rounded-lg border border-rca-green/20 space-y-2">
+                {serviceType === 'delivery' && deliveryFee > 0 && (
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <span>Delivery Fee:</span>
+                    <span>₱{deliveryFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-rca-green">Full Payment Amount:</span>
-                  <span className="text-xl font-bold text-rca-red">₱{totalPrice.toFixed(2)}</span>
+                  <span className="text-xl font-bold text-rca-red">₱{totalWithDeliveryFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             )}
@@ -1139,11 +1345,11 @@ ${paymentInfo}`;
                   )}
                   <p className="text-sm text-gray-600 mb-3">Account Name: {selectedPaymentMethod.account_name}</p>
                   <p className="text-xl font-semibold text-cafe-accent">
-                    Amount: ₱{paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
+                    Amount: ₱{paymentType === 'down-payment' ? downPaymentAmount : totalWithDeliveryFee}
                   </p>
                   {paymentType === 'down-payment' && (
                     <p className="text-sm text-gray-600 mt-1">
-                      Remaining: ₱{totalPrice - downPaymentAmount}
+                      Remaining: ₱{totalWithDeliveryFee - downPaymentAmount}
                     </p>
                   )}
                 </div>
@@ -1254,24 +1460,32 @@ ${paymentInfo}`;
                   {paymentType === 'down-payment' ? 'Down Payment' : 'Full Payment'}
                 </span>
               </div>
+              {serviceType === 'delivery' && deliveryFee > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">Delivery Fee:</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    ₱{deliveryFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-600">Payment Amount:</span>
                 <span className="text-lg font-semibold text-cafe-accent">
-                  ₱{paymentType === 'down-payment' ? downPaymentAmount : totalPrice}
+                  ₱{paymentType === 'down-payment' ? downPaymentAmount : totalWithDeliveryFee}
                 </span>
               </div>
               {paymentType === 'down-payment' && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-600">Remaining Balance:</span>
                   <span className="text-sm font-semibold text-gray-700">
-                    ₱{totalPrice - downPaymentAmount}
+                    ₱{totalWithDeliveryFee - downPaymentAmount}
                   </span>
                 </div>
               )}
             </div>
             <div className="flex items-center justify-between text-2xl font-playfair font-semibold text-cafe-dark border-t border-cafe-latte pt-4">
               <span>Total Amount:</span>
-              <span className="text-cafe-accent">₱{totalPrice}</span>
+              <span className="text-cafe-accent">₱{totalWithDeliveryFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </div>
 
@@ -1281,53 +1495,14 @@ ${paymentInfo}`;
             disabled={isSubmitting || orderSaved}
             className="w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform bg-cafe-accent text-white hover:bg-cafe-espresso hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {orderSaved ? 'Order Already Saved' : isSubmitting ? 'Saving Order...' : 'Place Order via Messenger'}
+            {orderSaved ? 'Order Already Saved' : isSubmitting ? 'Saving Order...' : 'Generate Receipt'}
           </button>
           
           <p className="text-xs text-gray-500 text-center mt-3">
-            You'll be redirected to Facebook Messenger to confirm your order. Don't forget to attach your payment screenshot!
+            Your order will be saved and a receipt will be generated for your records.
           </p>
         </div>
       </div>
-
-      {/* Instruction Modal */}
-      {showInstructionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-            <div className="p-6 border-t-4 border-rca-green">
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0 text-rca-green">
-                  <AlertCircle className="h-6 w-6" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Order Copied to Clipboard!</h3>
-                  <div className="space-y-3 text-sm text-gray-700">
-                    <p className="font-medium text-gray-900">Follow these steps:</p>
-                    <ol className="list-decimal list-inside space-y-2 ml-2">
-                      <li>Click "Continue" below to open Facebook Messenger</li>
-                      <li>If your order message doesn't appear automatically, long press in the message box and tap "Paste" to paste your order</li>
-                      <li>Send the message to confirm your order</li>
-                    </ol>
-                    <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                      <p className="text-xs text-blue-800">
-                        <span className="font-semibold">💡 Tip:</span> Your order is already saved in our system. If Messenger doesn't work, you can also go to our Facebook page and send the message there.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex items-center justify-end space-x-3">
-              <button
-                onClick={handleContinueToMessenger}
-                className="px-6 py-2 text-sm font-medium bg-rca-green text-white rounded-lg hover:bg-rca-green/90 transition-colors"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Receipt View */}
       {showReceipt && (
@@ -1335,14 +1510,16 @@ ${paymentInfo}`;
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 my-8 transform transition-all">
             <div className="p-6 border-t-4 border-rca-green">
               <div className="text-center mb-6">
-                <div className="inline-block px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-semibold mb-4">
-                  COPIED
+                <h2 className="text-2xl font-playfair font-semibold text-rca-green mb-4">ORDER RECEIPT</h2>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-800 font-medium">
+                    📸 Please take a screenshot of this receipt for your records
+                  </p>
                 </div>
-                <h2 className="text-2xl font-playfair font-semibold text-rca-green">ORDER DETAILS</h2>
               </div>
               <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                 <pre className="whitespace-pre-wrap font-mono text-sm text-gray-800 leading-relaxed">
-                  {copiedOrderDetails}
+                  {receiptOrderDetails}
                 </pre>
               </div>
             </div>
@@ -1351,7 +1528,7 @@ ${paymentInfo}`;
                 onClick={handleCloseReceipt}
                 className="px-6 py-2 text-sm font-medium bg-rca-green text-white rounded-lg hover:bg-rca-green/90 transition-colors"
               >
-                Continue
+                Close
               </button>
             </div>
           </div>

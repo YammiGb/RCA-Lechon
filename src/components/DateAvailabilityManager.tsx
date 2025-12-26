@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Calendar, Check, X } from 'lucide-react';
-import { useDateAvailability } from '../hooks/useDateAvailability';
+import { ArrowLeft, Calendar, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useDateAvailability, AvailableItem } from '../hooks/useDateAvailability';
 import { useMenu } from '../hooks/useMenu';
 
 interface DateAvailabilityManagerProps {
@@ -15,15 +15,37 @@ const DateAvailabilityManager: React.FC<DateAvailabilityManagerProps> = ({ onBac
     return today.toISOString().split('T')[0];
   });
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [selectedAvailableItems, setSelectedAvailableItems] = useState<AvailableItem[]>([]);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
   const [isSaving, setIsSaving] = useState(false);
+
+  const CITIES = ['Lapu-Lapu City', 'Cebu City', 'Mandaue City', 'Talisay', 'Minglanilla', 'Consolacion', 'Liloan'];
 
   // Load existing availability for selected date
   React.useEffect(() => {
     const existing = dateAvailabilities.find(da => da.date === selectedDate);
     if (existing) {
-      setSelectedItemIds(existing.available_item_ids);
+      // Use new format if available, otherwise fall back to legacy format
+      if (existing.available_items && existing.available_items.length > 0) {
+        setSelectedAvailableItems(existing.available_items);
+        // Extract unique item IDs for backward compatibility
+        const itemIds = [...new Set(existing.available_items.map(item => item.itemId))];
+        setSelectedItemIds(itemIds);
+      } else {
+        // Legacy format - convert to new format
+        const legacyItems: AvailableItem[] = existing.available_item_ids.map(itemId => ({
+          itemId,
+          type: 'base'
+        }));
+        setSelectedAvailableItems(legacyItems);
+        setSelectedItemIds(existing.available_item_ids);
+      }
+      setDeliveryFees(existing.delivery_fees || {});
     } else {
       setSelectedItemIds([]);
+      setSelectedAvailableItems([]);
+      setDeliveryFees({});
     }
   }, [selectedDate, dateAvailabilities]);
 
@@ -33,7 +55,59 @@ const DateAvailabilityManager: React.FC<DateAvailabilityManagerProps> = ({ onBac
         ? prev.filter(id => id !== itemId)
         : [...prev, itemId]
     );
+    // Also toggle base item in available items
+    setSelectedAvailableItems(prev => {
+      const hasBase = prev.some(item => item.itemId === itemId && item.type === 'base');
+      if (hasBase) {
+        // Remove all entries for this item
+        return prev.filter(item => item.itemId !== itemId);
+      } else {
+        // Add base item
+        return [...prev, { itemId, type: 'base' }];
+      }
+    });
   };
+
+  const handleToggleVariation = (itemId: string, variationId: string) => {
+    setSelectedAvailableItems(prev => {
+      const exists = prev.some(item => item.itemId === itemId && item.type === 'variation' && item.variationId === variationId);
+      if (exists) {
+        return prev.filter(item => !(item.itemId === itemId && item.type === 'variation' && item.variationId === variationId));
+      } else {
+        return [...prev, { itemId, type: 'variation', variationId }];
+      }
+    });
+  };
+
+  const handleToggleAddOn = (itemId: string, addOnId: string) => {
+    setSelectedAvailableItems(prev => {
+      const exists = prev.some(item => item.itemId === itemId && item.type === 'addon' && item.addOnId === addOnId);
+      if (exists) {
+        return prev.filter(item => !(item.itemId === itemId && item.type === 'addon' && item.addOnId === addOnId));
+      } else {
+        return [...prev, { itemId, type: 'addon', addOnId }];
+      }
+    });
+  };
+
+  const toggleExpandItem = (itemId: string) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const isItemExpanded = (itemId: string) => expandedItems.has(itemId);
+  const isBaseSelected = (itemId: string) => selectedAvailableItems.some(item => item.itemId === itemId && item.type === 'base');
+  const isVariationSelected = (itemId: string, variationId: string) => 
+    selectedAvailableItems.some(item => item.itemId === itemId && item.type === 'variation' && item.variationId === variationId);
+  const isAddOnSelected = (itemId: string, addOnId: string) => 
+    selectedAvailableItems.some(item => item.itemId === itemId && item.type === 'addon' && item.addOnId === addOnId);
 
   const handleSelectAll = () => {
     if (selectedItemIds.length === menuItems.length) {
@@ -51,7 +125,7 @@ const DateAvailabilityManager: React.FC<DateAvailabilityManagerProps> = ({ onBac
 
     try {
       setIsSaving(true);
-      await setAvailabilityForDate(selectedDate, selectedItemIds);
+      await setAvailabilityForDate(selectedDate, selectedItemIds, deliveryFees, selectedAvailableItems);
       alert('Date availability saved successfully!');
       await refetch();
     } catch (error) {
@@ -60,6 +134,22 @@ const DateAvailabilityManager: React.FC<DateAvailabilityManagerProps> = ({ onBac
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleDeliveryFeeChange = (city: string, value: string) => {
+    const numValue = value === '' ? 0 : parseFloat(value);
+    if (isNaN(numValue) || numValue < 0) {
+      setDeliveryFees(prev => {
+        const updated = { ...prev };
+        delete updated[city];
+        return updated;
+      });
+      return;
+    }
+    setDeliveryFees(prev => ({
+      ...prev,
+      [city]: numValue
+    }));
   };
 
   const handleDelete = async () => {
@@ -151,6 +241,35 @@ const DateAvailabilityManager: React.FC<DateAvailabilityManagerProps> = ({ onBac
           )}
         </div>
 
+        {/* Delivery Fees Section */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-playfair font-medium text-black mb-4">Delivery Fees (Optional)</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Set delivery fees for each city on this date. Leave empty for free delivery. These fees only apply on the selected date.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {CITIES.map(city => (
+              <div key={city} className="flex items-center space-x-2">
+                <label className="block text-sm font-medium text-gray-700 w-32 flex-shrink-0">
+                  {city}:
+                </label>
+                <div className="flex-1 relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₱</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={deliveryFees[city] || ''}
+                    onChange={(e) => handleDeliveryFeeChange(city, e.target.value)}
+                    placeholder="0.00"
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-playfair font-medium text-black">
@@ -169,32 +288,120 @@ const DateAvailabilityManager: React.FC<DateAvailabilityManagerProps> = ({ onBac
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto">
+          <div className="space-y-3 max-h-[600px] overflow-y-auto">
             {menuItems.map((item) => {
-              const isSelected = selectedItemIds.includes(item.id);
+              const isSelected = isBaseSelected(item.id);
+              const hasVariations = item.variations && item.variations.length > 0;
+              const hasAddOns = item.addOns && item.addOns.length > 0;
+              const isExpanded = isItemExpanded(item.id);
+              const showDetails = hasVariations || hasAddOns;
+
               return (
                 <div
                   key={item.id}
-                  onClick={() => handleToggleItem(item.id)}
-                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  className={`border-2 rounded-lg transition-all ${
                     isSelected
                       ? 'border-green-600 bg-green-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      : 'border-gray-200'
                   }`}
                 >
-                  <div className="flex items-start space-x-3">
-                    <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
-                      isSelected
-                        ? 'border-green-600 bg-green-600'
-                        : 'border-gray-300'
-                    }`}>
-                      {isSelected && <Check className="h-3 w-3 text-white" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 truncate">{item.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1">₱{item.basePrice.toFixed(2)}</p>
+                  <div 
+                    className="p-4 cursor-pointer"
+                    onClick={() => handleToggleItem(item.id)}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
+                        isSelected
+                          ? 'border-green-600 bg-green-600'
+                          : 'border-gray-300'
+                      }`}>
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-gray-900 truncate">{item.name}</h3>
+                        <p className="text-sm text-gray-500 mt-1">₱{item.basePrice.toFixed(2)}</p>
+                        {showDetails && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            {hasVariations && `${item.variations?.length} variation(s)`}
+                            {hasVariations && hasAddOns && ' • '}
+                            {hasAddOns && `${item.addOns?.length} add-on(s)`}
+                          </p>
+                        )}
+                      </div>
+                      {showDetails && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpandItem(item.id);
+                          }}
+                          className="flex-shrink-0 text-gray-500 hover:text-gray-700 p-1"
+                          title={isExpanded ? "Collapse" : "Expand to see variations and add-ons"}
+                        >
+                          {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                        </button>
+                      )}
                     </div>
                   </div>
+
+                  {isExpanded && showDetails && (
+                    <div className="px-4 pb-4 pt-2 border-t border-gray-200 bg-white">
+                      {hasVariations && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Variations:</h4>
+                          <div className="space-y-2">
+                            {item.variations?.map((variation) => {
+                              const isVarSelected = isVariationSelected(item.id, variation.id);
+                              return (
+                                <label
+                                  key={variation.id}
+                                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isVarSelected}
+                                    onChange={() => handleToggleVariation(item.id, variation.id)}
+                                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                  />
+                                  <span className="text-sm text-gray-700">
+                                    {variation.name} (+₱{variation.price.toFixed(2)})
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {hasAddOns && (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Add-ons:</h4>
+                          <div className="space-y-2">
+                            {item.addOns?.map((addOn) => {
+                              const isAddOnSel = isAddOnSelected(item.id, addOn.id);
+                              return (
+                                <label
+                                  key={addOn.id}
+                                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isAddOnSel}
+                                    onChange={() => handleToggleAddOn(item.id, addOn.id)}
+                                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                  />
+                                  <span className="text-sm text-gray-700">
+                                    {addOn.name} {addOn.price ? `(+₱${addOn.price.toFixed(2)})` : ''}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

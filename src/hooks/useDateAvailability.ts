@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
+export interface AvailableItem {
+  itemId: string;
+  type: 'base' | 'variation' | 'addon';
+  variationId?: string;
+  addOnId?: string;
+}
+
 export interface DateAvailability {
   id: string;
   date: string; // YYYY-MM-DD format
-  available_item_ids: string[];
+  available_item_ids: string[]; // Legacy format for backward compatibility
+  available_items?: AvailableItem[]; // New format with variations/add-ons support
+  delivery_fees?: Record<string, number>; // City name -> delivery fee amount
   created_at: string;
   updated_at: string;
 }
@@ -25,7 +34,15 @@ export const useDateAvailability = () => {
 
       if (fetchError) throw fetchError;
 
-      setDateAvailabilities(data || []);
+      // Ensure available_items is parsed if it's a JSON string
+      const parsedData = (data || []).map(item => ({
+        ...item,
+        available_items: typeof item.available_items === 'string' 
+          ? JSON.parse(item.available_items) 
+          : item.available_items
+      }));
+
+      setDateAvailabilities(parsedData);
       setError(null);
     } catch (err) {
       console.error('Error fetching date availabilities:', err);
@@ -62,13 +79,20 @@ export const useDateAvailability = () => {
     }
   };
 
-  const setAvailabilityForDate = async (date: string, availableItemIds: string[]) => {
+  const setAvailabilityForDate = async (
+    date: string, 
+    availableItemIds: string[], 
+    deliveryFees?: Record<string, number>,
+    availableItems?: AvailableItem[]
+  ) => {
     try {
       const { data, error: upsertError } = await supabase
         .from('date_availability')
         .upsert({
           date,
-          available_item_ids: availableItemIds
+          available_item_ids: availableItemIds, // Keep for backward compatibility
+          available_items: availableItems || availableItemIds.map(itemId => ({ itemId, type: 'base' })),
+          delivery_fees: deliveryFees || {}
         }, {
           onConflict: 'date'
         })
@@ -82,6 +106,30 @@ export const useDateAvailability = () => {
     } catch (err) {
       console.error('Error setting availability for date:', err);
       throw err;
+    }
+  };
+
+  const getDeliveryFeesForDate = async (date: string): Promise<Record<string, number> | null> => {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('date_availability')
+        .select('delivery_fees')
+        .eq('date', date)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.warn('Error fetching delivery fees for date:', fetchError);
+        return null;
+      }
+
+      if (!data || !data.delivery_fees) {
+        return null;
+      }
+
+      return data.delivery_fees as Record<string, number>;
+    } catch (err) {
+      console.error('Error fetching delivery fees for date:', err);
+      return null;
     }
   };
 
@@ -110,6 +158,7 @@ export const useDateAvailability = () => {
     loading,
     error,
     getAvailabilityForDate,
+    getDeliveryFeesForDate,
     setAvailabilityForDate,
     deleteAvailabilityForDate,
     refetch: fetchDateAvailabilities

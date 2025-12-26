@@ -267,16 +267,59 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     return { days: diffDays, isPast };
   };
 
+  // Generate readable order ID format: 12m31d-1 (month + day + customer number for that day)
+  // Only applies to new orders (created after deployment date)
+  // Old orders keep their UUID substring format
+  const DEPLOYMENT_DATE = new Date(); // Today's date - orders created before today use old format
+  DEPLOYMENT_DATE.setHours(0, 0, 0, 0); // Set to start of today
+  
+  const generateReadableOrderId = (order: Order, allOrders: Order[]): string => {
+    const orderDate = new Date(order.created_at);
+    
+    // If order was created before deployment date, use old format
+    if (orderDate < DEPLOYMENT_DATE) {
+      return order.id.substring(0, 8);
+    }
+    
+    // For new orders, use readable format: 12m31d-1
+    const month = orderDate.getMonth() + 1; // 1-12
+    const day = orderDate.getDate(); // 1-31
+    
+    // Get all NEW orders created on the same day, sorted by created_at
+    const sameDayOrders = allOrders
+      .filter(o => {
+        const oDate = new Date(o.created_at);
+        // Only count new orders (created after deployment)
+        return oDate >= DEPLOYMENT_DATE &&
+               oDate.getMonth() + 1 === month && 
+               oDate.getDate() === day;
+      })
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    
+    // Find the index of this order in the sorted list (1-based)
+    const customerNumber = sameDayOrders.findIndex(o => o.id === order.id) + 1;
+    
+    return `${month}m${day}d-${customerNumber}`;
+  };
+
   // Apply filters to orders
   const filteredOrders = useMemo(() => {
     let filtered = [...orders];
 
-    // Filter by search term (order number)
+    // Filter by search term (order number or customer name)
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase().trim();
       filtered = filtered.filter(order => {
+        // Search by readable order ID
+        const readableOrderId = generateReadableOrderId(order, orders).toLowerCase();
+        // Search by customer name
+        const customerName = order.customer_name.toLowerCase();
+        // Also search by original order ID substring for backward compatibility
         const orderNumber = order.id.substring(0, 8).toLowerCase();
-        return orderNumber.includes(searchLower);
+        
+        return readableOrderId.includes(searchLower) || 
+               customerName.includes(searchLower) ||
+               orderNumber.includes(searchLower);
       });
     }
 
@@ -615,8 +658,8 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
   const formatOrderDetails = (order: Order): string => {
     const parts: string[] = [];
     
-    // Add order number at the beginning
-    const orderNumber = order.id.substring(0, 8);
+    // Add order number at the beginning (readable format)
+    const orderNumber = generateReadableOrderId(order, orders);
     parts.push(`Order #${orderNumber}`);
     parts.push(''); // Empty line after order number
     
@@ -671,9 +714,16 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
     // Empty line after address/landmark section
     parts.push('');
     
-    // City (keep original case, on its own line)
+    // City (keep original case, on its own line) with delivery fee if applicable
     if (order.city) {
-      parts.push(order.city);
+      let cityDisplay = order.city;
+      
+      // If it's a delivery order and has a delivery fee stored, show it
+      if (order.service_type === 'delivery' && order.delivery_fee !== null && order.delivery_fee !== undefined && order.delivery_fee > 0) {
+        cityDisplay = `${order.city} (₱${order.delivery_fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+      }
+      
+      parts.push(cityDisplay);
       parts.push(''); // Empty line after city
     }
     
@@ -742,7 +792,9 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
   };
 
   const handleCopyOrderNumber = async (orderId: string) => {
-    const orderNumber = orderId.substring(0, 8);
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+    const orderNumber = generateReadableOrderId(order, orders);
     try {
       await navigator.clipboard.writeText(orderNumber);
       showToast('Order number copied!', 'success');
@@ -774,7 +826,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900">
-                Order #{order.id.substring(0, 8)}
+                Order #{generateReadableOrderId(order, orders)}
               </h3>
               {isNewOrder(order.id) && (
                 <span className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0" title="New order"></span>
@@ -1073,7 +1125,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       <ConfirmationModal
         isOpen={showRejectModal}
         title="Reject Order"
-        message={`Are you sure you want to reject order #${orderToReject?.id.substring(0, 8)}? This action cannot be undone.`}
+        message={`Are you sure you want to reject order #${orderToReject ? generateReadableOrderId(orderToReject, orders) : ''}? This action cannot be undone.`}
         confirmText="Reject Order"
         cancelText="Cancel"
         type="danger"
@@ -1087,7 +1139,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
       <ConfirmationModal
         isOpen={showDeleteModal}
         title="Delete Order"
-        message={`Are you sure you want to delete order #${orderToDelete?.id.substring(0, 8)}? This action cannot be undone and will permanently remove the order from the system.`}
+        message={`Are you sure you want to delete order #${orderToDelete ? generateReadableOrderId(orderToDelete, orders) : ''}? This action cannot be undone and will permanently remove the order from the system.`}
         confirmText="Delete Order"
         cancelText="Cancel"
         type="danger"
@@ -1159,7 +1211,7 @@ const OrderVerification: React.FC<OrderVerificationProps> = ({ webhookUrl }) => 
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by order number..."
+            placeholder="Search by order number or customer name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rca-green focus:border-rca-green"

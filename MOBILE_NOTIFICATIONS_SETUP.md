@@ -150,3 +150,4 @@ If notifications still don't work after following this guide:
 4. Check network connectivity
 5. Verify Supabase realtime is enabled
 
+

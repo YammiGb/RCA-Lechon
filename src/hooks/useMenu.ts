@@ -27,13 +27,14 @@ export const useMenu = (filterByDate?: string) => {
       // If filtering by date, get available items for that date
       let availableItemIds: string[] | null = null;
       if (filterByDate) {
-        const { data: dateAvailability } = await supabase
+        const { data: dateAvailability, error: dateError } = await supabase
           .from('date_availability')
           .select('available_item_ids')
           .eq('date', filterByDate)
-          .single();
+          .maybeSingle();
         
-        if (dateAvailability) {
+        // If error or no data, treat as no restrictions (null means all items available)
+        if (!dateError && dateAvailability) {
           availableItemIds = dateAvailability.available_item_ids || [];
         }
       }

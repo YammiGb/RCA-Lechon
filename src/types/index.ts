@@ -113,6 +113,7 @@ export interface Order {
   reference_number?: string | null;
   notes?: string | null;
   total: number;
+  delivery_fee?: number | null;
   status: 'pending' | 'approved' | 'rejected' | 'synced';
   verified_by?: string | null;
   verified_at?: string | null;

@@ -10,12 +10,14 @@ import FloatingCartButton from './components/FloatingCartButton';
 import AdminDashboard from './components/AdminDashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useMenu } from './hooks/useMenu';
+import { useDateAvailability } from './hooks/useDateAvailability';
 
 function MainApp() {
   const cart = useCart();
   // Get today's date in YYYY-MM-DD format for filtering menu items
   const today = new Date().toISOString().split('T')[0];
   const { menuItems } = useMenu(today);
+  const { dateAvailabilities } = useDateAvailability();
   const [currentView, setCurrentView] = React.useState<'menu' | 'cart' | 'checkout'>('menu');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
 
@@ -28,7 +30,8 @@ function MainApp() {
   };
 
   // Filter menu items based on selected category
-  const filteredMenuItems = selectedCategory === 'all' 
+  // Note: "available-today" is handled separately in Menu component
+  const filteredMenuItems = (selectedCategory === 'all' || selectedCategory === 'available-today')
     ? menuItems 
     : menuItems.filter(item => item.category === selectedCategory);
 
@@ -39,7 +42,11 @@ function MainApp() {
         onCartClick={() => handleViewChange('cart')}
         onMenuClick={() => handleViewChange('menu')}
       />
-      <SubNav selectedCategory={selectedCategory} onCategoryClick={handleCategoryClick} />
+      <SubNav 
+        selectedCategory={selectedCategory} 
+        onCategoryClick={handleCategoryClick}
+        dateAvailabilities={dateAvailabilities}
+      />
       
       {currentView === 'menu' && (
         <Menu 
@@ -49,6 +56,7 @@ function MainApp() {
           updateQuantity={cart.updateQuantity}
           selectedCategory={selectedCategory}
           onNavigateToCart={() => handleViewChange('cart')}
+          dateAvailabilities={dateAvailabilities}
         />
       )}
       
@@ -69,6 +77,7 @@ function MainApp() {
           cartItems={cart.cartItems}
           totalPrice={cart.getTotalPrice()}
           onBack={() => handleViewChange('cart')}
+          dateAvailabilities={dateAvailabilities}
         />
       )}
       

@@ -51,3 +51,4 @@ CREATE TRIGGER update_date_availability_updated_at
 -- Create index for faster date lookups
 CREATE INDEX IF NOT EXISTS idx_date_availability_date ON date_availability(date);
 
+

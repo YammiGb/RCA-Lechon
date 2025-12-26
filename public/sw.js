@@ -64,7 +64,28 @@ function showNotification(title, body, orderNumber) {
 
 // Handle fetch requests - always use network for navigation to ensure routing works
 self.addEventListener('fetch', (event) => {
-  // Only handle navigation requests (document requests)
+  const url = new URL(event.request.url);
+  
+  // Skip Service Worker for external API requests (let them pass through normally)
+  // This prevents CORS and Service Worker issues with external services like ipify.org
+  if (url.origin !== self.location.origin) {
+    // Don't call event.respondWith() - let browser handle external requests normally
+    return;
+  }
+  
+  // Skip Service Worker for module requests (.tsx, .ts, .jsx, .js files)
+  // These need to be handled directly by the browser for proper module loading
+  if (event.request.destination === 'script' || 
+      url.pathname.endsWith('.tsx') || 
+      url.pathname.endsWith('.ts') || 
+      url.pathname.endsWith('.jsx') || 
+      url.pathname.endsWith('.js') ||
+      url.searchParams.has('t')) { // Vite HMR timestamp parameter
+    // Don't call event.respondWith() - let browser handle module requests normally
+    return;
+  }
+  
+  // Only handle navigation requests (document requests) for same-origin
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -73,15 +94,19 @@ self.addEventListener('fetch', (event) => {
           return caches.match('/index.html');
         })
     );
+    return;
   }
-  // For all other requests (API, images, etc.), use network-first strategy
-  else {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match(event.request);
+  
+  // For all other same-origin requests (API, images, etc.), use network-first strategy
+  event.respondWith(
+    fetch(event.request)
+      .catch(() => {
+        // If fetch fails, try cache, but ensure we return a Response
+        return caches.match(event.request).then(cachedResponse => {
+          return cachedResponse || new Response('Network error', { status: 408 });
+        });
       })
-    );
-  }
+  );
 });
 
 // Handle notification click

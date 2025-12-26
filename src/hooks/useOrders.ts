@@ -55,6 +55,7 @@ export const useOrders = () => {
     referenceNumber?: string;
     notes?: string;
     total: number;
+    deliveryFee?: number;
     items: CartItem[];
     ipAddress?: string;
   }) => {
@@ -81,6 +82,7 @@ export const useOrders = () => {
           reference_number: orderData.referenceNumber || null,
           notes: orderData.notes || null,
           total: orderData.total,
+          delivery_fee: orderData.deliveryFee || null,
           status: 'pending',
           ip_address: orderData.ipAddress || null,
         })
@@ -286,6 +288,7 @@ export const useOrders = () => {
         referenceNumber: order.reference_number || '',
         notes: order.notes || '',
         total: order.total,
+        deliveryFee: order.delivery_fee || 0,
         items: (order.order_items || []).map((item: OrderItem) => ({
           name: item.name,
           variation: item.variation ? JSON.stringify(item.variation) : '',
